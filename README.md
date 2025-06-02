@@ -14,11 +14,11 @@ Este laboratório tem como objetivo explorar, validar e versionar configuraçõe
 
 As features estão organizadas em branches independentes, cada uma tratando de um contexto específico:
 
-- `server-basics` – Servidor HTTP estático e estrutura mínima
-- `proxy-reverse` – Reverse proxy com múltiplos serviços
-- `api-gateway` – Direcionamento de rotas e segmentação de microsserviços
-- `load-balancer` – Balanceamento de carga com upstreams e fallback
-- `logs-custom` – Configuração avançada de logs
+- `01-server-basics` – Servidor HTTP estático e estrutura mínima
+- `02-proxy-reverse` – Reverse proxy com múltiplos serviços
+- `03-api-gateway` – Direcionamento de rotas e segmentação de microsserviços
+- `04-load-balancer` – Balanceamento de carga com upstreams e fallback
+- `05-logs-custom` – Configuração avançada de logs
 - *(Outras branches serão adicionadas conforme a evolução do projeto)*
 
 ---
