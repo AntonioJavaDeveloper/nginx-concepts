@@ -16,13 +16,16 @@ Este branch apresenta uma arquitetura básica e modularizada para configurar e e
 ├── settings/                      # Configurações do NGINX
 │   ├── nginx.conf                 # Configuração principal
 │   └── servers/                   # Virtual hosts (inclusos por nginx.conf)
-│       ├── .gitkeep              # Mantém o diretório no versionamento
-│       └── server1.conf          # Exemplo de servidor na porta 8080
+│       ├── .gitkeep               # Mantém o diretório no versionamento
+│       └── server1.conf           # Exemplo de servidor na porta 8080
 └── web/                           # Conteúdo estático servido pelo NGINX
-    ├── html/                     # Servido na raiz (porta 80)
+    ├── html/                      # Servido na raiz (porta 80)
     │   └── index.html
-    └── server1/                  # Servido na porta 8080
+    └── server1/                   # Servido na porta 8080
         └── index.html
+    └── error/                     # Páginas personalizadas de erro (40x, 50x)
+        └── error40x.html
+        └── error50x.html
 ```
 
 ## 🚀 Como executar
@@ -47,6 +50,7 @@ Este branch apresenta uma arquitetura básica e modularizada para configurar e e
 - Adicione novos servidores criando arquivos `.conf` em `settings/servers/`.
 - Para cada servidor, associe uma nova porta no `docker-compose.yml`, se necessário.
 - Os volumes são montados para permitir hot-reload sem rebuild da imagem.
+- É possível definir páginas customizadas para erros HTTP (como 400, 401, 404, 500 etc.) utilizando diretivas error_page. Um exemplo pode ser visto com os arquivos error40x.html e error50x.html, servidos a partir de um diretório específico.
 
 ## ✅ Requisitos
 
