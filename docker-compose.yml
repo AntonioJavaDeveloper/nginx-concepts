@@ -1,0 +1,13 @@
+services:
+  nginx:
+    image: nginx:1.26
+    container_name: nginx-server
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - ./web/html:/usr/share/nginx/html
+      - ./web/server1:/usr/share/nginx/server1
+      - ./settings/nginx.conf:/etc/nginx/nginx.conf
+      - ./settings/servers:/etc/nginx/servers
+    restart: unless-stopped
