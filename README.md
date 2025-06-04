@@ -1,68 +1,82 @@
-# NGINX com Docker – Branch: `01-server-basics`
+# NGINX with Docker – Branch: `01-server-basics`
 
-Este branch apresenta uma arquitetura básica e modularizada para configurar e executar servidores virtuais com NGINX utilizando Docker. A estrutura é pensada para facilitar o desenvolvimento local, testes de configurações e simulações de cenários comuns como:
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-- Servidores HTTP estáticos
-- Virtual hosts (múltiplos servidores)
-- Organização de arquivos de configuração
-- Inclusão dinâmica de servidores via `include`
-- Separação clara entre código, configuração e infraestrutura
+This branch presents a basic and modular architecture to configure and run virtual servers with NGINX using Docker. The structure is designed to facilitate local development, configuration testing, and simulation of common scenarios such as:
 
-## 📦 Estrutura do Projeto
+- Static HTTP servers  
+- Virtual hosts (multiple servers)  
+- Configuration file organization  
+- Dynamic server inclusion via `include`  
+- Clear separation between code, configuration, and infrastructure  
+
+## 📦 Project Structure
 
 ```
 .
-├── docker-compose.yml             # Orquestração do container NGINX
-├── settings/                      # Configurações do NGINX
-│   ├── nginx.conf                 # Configuração principal
-│   └── servers/                   # Virtual hosts (inclusos por nginx.conf)
-│       ├── .gitkeep               # Mantém o diretório no versionamento
-│       └── server1.conf           # Exemplo de servidor na porta 8080
-└── web/                           # Conteúdo estático servido pelo NGINX
-    ├── html/                      # Servido na raiz (porta 80)
+├── docker-compose.yml             # Orchestrates the NGINX container
+├── settings/                      # NGINX configurations
+│   ├── nginx.conf                 # Main configuration
+│   └── servers/                   # Virtual hosts (included by nginx.conf)
+│       ├── .gitkeep               # Keeps the directory under version control
+│       └── server1.conf           # Example server on port 8080
+└── web/                           # Static content served by NGINX
+    ├── html/                      # Served at root (port 80)
     │   └── index.html
-    └── server1/                   # Servido na porta 8080
+    └── server1/                   # Served on port 8080
         └── index.html
-    └── error/                     # Páginas personalizadas de erro (40x, 50x)
+    └── error/                     # Custom error pages (40x, 50x)
         └── error40x.html
         └── error50x.html
 ```
 
-## 🚀 Como executar
+## 🚀 How to Run
 
-1. Suba os containers:
+1. Start the containers:
    ```bash
    docker compose up -d
    ```
 
-2. Acesse no navegador:
+2. Open your browser:
 
-    - [http://localhost](http://localhost) → Conteúdo do diretório `web/html`
-    - [http://localhost:8080](http://localhost:8080) → Conteúdo do diretório `web/server1`
+   - [http://localhost](http://localhost) → Content from `web/html` directory  
+   - [http://localhost:8080](http://localhost:8080) → Content from `web/server1` directory  
 
-3. Teste a configuração:
+3. Test the configuration:
    ```bash
    docker compose exec nginx nginx -t
    ```
 
-## 🔧 Personalização
+## 🔧 Customization
 
-- Adicione novos servidores criando arquivos `.conf` em `settings/servers/`.
-- Para cada servidor, associe uma nova porta no `docker-compose.yml`, se necessário.
-- Os volumes são montados para permitir hot-reload sem rebuild da imagem.
-- É possível definir páginas customizadas para erros HTTP (como 400, 401, 404, 500 etc.) utilizando diretivas error_page. Um exemplo pode ser visto com os arquivos error40x.html e error50x.html, servidos a partir de um diretório específico.
+- Add new servers by creating `.conf` files in `settings/servers/`.
+- For each server, assign a new port in `docker-compose.yml`, if necessary.
+- Volumes are mounted to allow hot-reload without rebuilding the image.
+- You can define custom error pages for HTTP errors (such as 400, 401, 404, 500, etc.) using `error_page` directives. An example is provided with the `error40x.html` and `error50x.html` files served from a dedicated directory.
 
-## ✅ Requisitos
+## ✅ Requirements
 
-- Docker 20+
-- Docker Compose 2+
+- Docker 20+  
+- Docker Compose 2+  
 
-## 📝 Notas
+## 📝 Notes
 
-- Diretórios vazios são mantidos com `.gitkeep` para garantir versionamento.
-- A imagem `nginx:1.26` é usada explicitamente para garantir previsibilidade.
-- Este conteúdo está vinculado ao **branch `01-server-basics`**, o qual documenta a configuração e estrutura inicial com base nos fundamentos do NGINX.
+- Empty directories are preserved using `.gitkeep` to ensure versioning.
+- The `nginx:1.26` image is explicitly used for predictability.
+- This content is tied to the **`01-server-basics` branch**, which documents the initial configuration and structure based on NGINX fundamentals.
 
 ---
 
-**Este ambiente serve como base de testes e experimentação de configurações do NGINX.**
+**This environment serves as a base for testing and experimenting with NGINX configurations.**
+
+---
+
+## 📫 Contact
+
+If you’d like to get in touch for opportunities or questions:
+
+- 🌐 [https://javadeveloper.com.br/](https://javadeveloper.com.br/)  
+- 💼 [LinkedIn](https://www.linkedin.com/in/antonio-javadeveloper/)  
+- 📧 antonio@javadeveloper.com.br  
+
+> Developed by [AntonioJavaDeveloper](https://github.com/AntonioJavaDeveloper)
