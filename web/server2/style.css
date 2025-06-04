@@ -4,20 +4,24 @@
     box-sizing: border-box;
 }
 
-body {
+html, body {
     font-family: 'Poppins', sans-serif;
     background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
     color: #fff;
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    padding: 20px;
 }
 
-.container {
-    max-width: 500px;
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+main.container {
+    flex: 1;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    text-align: center;
 }
 
 .headline {
@@ -61,11 +65,90 @@ a.button:hover {
     }
 }
 
+/* Endpoints */
+.endpoints {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: all 0.6s ease;
+    margin-top: 2rem;
+    text-align: left;
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 1rem;
+    border-radius: 12px;
+}
+
+.visible .endpoints{
+    max-height: 800px;
+    opacity: 1;
+}
+
+.endpoints h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: #00bcd4;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+table th, table td {
+    padding: 0.75rem;
+    border: 1px solid #444;
+    text-align: left;
+    color: #fff;
+}
+
+table th {
+    background-color: rgba(0, 188, 212, 0.2);
+}
+
+a.endpoint-link {
+    color: #4dd0e1;
+    text-decoration: underline;
+}
+
+a.endpoint-link:hover {
+    color: #00acc1;
+}
+
+/* Footer */
+footer {
+    background-color: #0f2027;
+    padding: 20px;
+    text-align: center;
+    color: #ccc;
+    font-size: 0.9rem;
+    border-top: 1px solid #333;
+}
+
+.footer-content a {
+    color: #4dd0e1;
+    text-decoration: none;
+}
+
+.footer-content a:hover {
+    text-decoration: underline;
+}
+
+.credit {
+    margin-top: 10px;
+    font-style: italic;
+}
+
 @media (max-width: 480px) {
     .headline {
         font-size: 2.5rem;
     }
+
     .message {
         font-size: 1.2rem;
+    }
+
+    main.container {
+        padding: 30px 15px;
     }
 }

@@ -5,17 +5,103 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Página Inicial</title>
     <link href="/style.css" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-    <style>
-
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
 </head>
 <body>
-<div class="container">
+<main class="container">
     <div class="headline">Bem-vindo ao servidor!</div>
     <div class="message">Esta é uma página HTML servida pelo servidor da porta 8080.</div>
     <div class="subtext">Os estilos foram carregados do servidor que escuta na porta 8081.</div>
-    <a class="button" href="#">Ver mais</a>
-</div>
+    <a class="button" id="toggle-btn" href="javascript:void(0)">Ver mais</a>
+
+    <div id="endpoints">
+        <section class="endpoints">
+            <h2>📌 Endpoints principais</h2>
+            <table>
+                <thead>
+                <tr>
+                    <th>Método</th>
+                    <th>Caminho</th>
+                    <th>Descrição</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>GET</td>
+                    <td><a class="endpoint-link" href="/games">/games</a></td>
+                    <td>Lista todos os jogos</td>
+                </tr>
+                <tr>
+                    <td>GET</td>
+                    <td><a class="endpoint-link" href="/games/1">/games/{id}</a></td>
+                    <td>Retorna detalhes de um jogo</td>
+                </tr>
+                <tr>
+                    <td>GET</td>
+                    <td><a class="endpoint-link" href="/lists">/lists</a></td>
+                    <td>Lista todas as listas de jogos</td>
+                </tr>
+                <tr>
+                    <td>GET</td>
+                    <td><a class="endpoint-link" href="/lists/1/games">/lists/{listId}/games</a></td>
+                    <td>Lista os jogos de uma lista</td>
+                </tr>
+                </tbody>
+                <tfooter>
+                    <tr>
+                        <td colspan="3">Os endpoints acima provém do servidor localhost:9001 implementados em Java. O nome do servidor se encontra no corpo do JSON na chave "server".</td>
+                    </tr>
+                </tfooter>
+            </table>
+        </section>
+
+        <section class="endpoints">
+            <h2>📌 Erros principais</h2>
+            <table>
+                <thead>
+                <tr>
+                    <th>Caminho</th>
+                    <th>Descrição</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><a class="endpoint-link" href="/abc">/abc</a></td>
+                    <td>Erro 404 - Endpoint desconhecido</td>
+                </tr>
+                <tr>
+                    <td><a class="endpoint-link" href="/error">/error</a></td>
+                    <td>Error 502 - Proxy aponta para um dos servidores mas o servidor não escuta nessa porta</td>
+                </tr>
+                </tbody>
+                <tfooter>
+                    <tr>
+                        <td colspan="3">Todas páginas de erro são redirecionadas pelo servidor proxy</td>
+                    </tr>
+                </tfooter>
+            </table>
+        </section>
+
+    </div>
+</main>
+
+<footer>
+    <div class="footer-content">
+        <p>🌐 <a href="https://javadeveloper.com.br/" target="_blank">javadeveloper.com.br</a></p>
+        <p>💼 <a href="https://www.linkedin.com/in/antonio-javadeveloper/" target="_blank">LinkedIn</a></p>
+        <p>📧 <a href="mailto:antonio@javadeveloper.com.br">antonio@javadeveloper.com.br</a></p>
+        <p class="credit">&gt; Desenvolvido por <a href="https://github.com/AntonioJavaDeveloper" target="_blank"><i>AntonioJavaDeveloper</i></a></p>
+    </div>
+</footer>
+
+<script>
+    const btn = document.getElementById('toggle-btn');
+    const section = document.getElementById('endpoints');
+
+    btn.addEventListener('click', () => {
+        section.classList.toggle('visible');
+        btn.textContent = section.classList.contains('visible') ? 'Ver menos' : 'Ver mais';
+    });
+</script>
 </body>
 </html>
