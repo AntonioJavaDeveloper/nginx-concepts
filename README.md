@@ -10,6 +10,8 @@ This branch presents a basic and modular architecture to configure and run virtu
 - Dynamic server inclusion via `include`  
 - Clear separation between code, configuration, and infrastructure  
 
+---
+
 ## 📦 Project Structure
 
 ```
@@ -30,6 +32,8 @@ This branch presents a basic and modular architecture to configure and run virtu
         └── error50x.html
 ```
 
+---
+
 ## 🚀 How to Run
 
 1. Start the containers:
@@ -47,6 +51,8 @@ This branch presents a basic and modular architecture to configure and run virtu
    docker compose exec nginx nginx -t
    ```
 
+---
+
 ## 🔧 Customization
 
 - Add new servers by creating `.conf` files in `settings/servers/`.
@@ -54,10 +60,14 @@ This branch presents a basic and modular architecture to configure and run virtu
 - Volumes are mounted to allow hot-reload without rebuilding the image.
 - You can define custom error pages for HTTP errors (such as 400, 401, 404, 500, etc.) using `error_page` directives. An example is provided with the `error40x.html` and `error50x.html` files served from a dedicated directory.
 
+---
+
 ## ✅ Requirements
 
 - Docker 20+  
 - Docker Compose 2+  
+
+---
 
 ## 📝 Notes
 

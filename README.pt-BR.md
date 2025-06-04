@@ -10,6 +10,8 @@ Este branch apresenta uma arquitetura básica e modularizada para configurar e e
 - Inclusão dinâmica de servidores via `include`
 - Separação clara entre código, configuração e infraestrutura
 
+---
+
 ## 📦 Estrutura do Projeto
 
 ```
@@ -30,6 +32,8 @@ Este branch apresenta uma arquitetura básica e modularizada para configurar e e
         └── error50x.html
 ```
 
+---
+
 ## 🚀 Como executar
 
 1. Suba os containers:
@@ -47,6 +51,8 @@ Este branch apresenta uma arquitetura básica e modularizada para configurar e e
    docker compose exec nginx nginx -t
    ```
 
+---
+
 ## 🔧 Personalização
 
 - Adicione novos servidores criando arquivos `.conf` em `settings/servers/`.
@@ -54,10 +60,15 @@ Este branch apresenta uma arquitetura básica e modularizada para configurar e e
 - Os volumes são montados para permitir hot-reload sem rebuild da imagem.
 - É possível definir páginas customizadas para erros HTTP (como 400, 401, 404, 500 etc.) utilizando diretivas error_page. Um exemplo pode ser visto com os arquivos error40x.html e error50x.html, servidos a partir de um diretório específico.
 
+---
+
 ## ✅ Requisitos
 
 - Docker 20+
 - Docker Compose 2+
+
+---
+
 
 ## 📝 Notas
 
