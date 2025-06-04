@@ -1,29 +1,31 @@
 # NGINX Playground
 
-Repositório dedicado à construção de ambientes e soluções utilizando o NGINX como componente central para infraestrutura web. Cada branch explora uma aplicação distinta do NGINX, desde seu uso como servidor HTTP até funções mais avançadas como proxy reverso, gateway de APIs e balanceador de carga.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
+Repository dedicated to building environments and solutions using NGINX as a core component for web infrastructure. Each branch explores a different use case of NGINX, from basic HTTP server functionality to more advanced roles such as reverse proxy, API gateway, and load balancer.
 
 ---
 
-## 📌 Proposta
+## 📌 Purpose
 
-Este laboratório tem como objetivo explorar, validar e versionar configurações e estratégias de uso do NGINX em diferentes cenários de arquitetura web.
-
----
-
-## 🔀 Estrutura por branches
-
-As features estão organizadas em branches independentes, cada uma tratando de um contexto específico:
-
-- `01-server-basics` – Servidor HTTP estático e estrutura mínima
-- `02-proxy-reverse` – Reverse proxy com múltiplos serviços
-- `03-api-gateway` – Direcionamento de rotas e segmentação de microsserviços
-- `04-load-balancer` – Balanceamento de carga com upstreams e fallback
-- `05-logs-custom` – Configuração avançada de logs
-- *(Outras branches serão adicionadas conforme a evolução do projeto)*
+This lab aims to explore, validate, and version NGINX configurations and usage strategies in various web architecture scenarios.
 
 ---
 
-## ⚙️ Tecnologias e práticas abordadas
+## 🔀 Branch Structure
+
+Features are organized into independent branches, each addressing a specific context:
+
+- `01-server-basics` – Static HTTP server and minimal structure
+- `02-proxy-reverse` – Reverse proxy with multiple services
+- `03-api-gateway` – Route forwarding and microservices segmentation
+- `04-load-balancer` – Load balancing with upstreams and fallback
+- `05-logs-custom` – Advanced log configuration
+- *(Other branches will be added as the project evolves)*
+
+---
+
+## ⚙️ Technologies and Practices Covered
 
 - NGINX 1.26+
 - Docker / Docker Compose
@@ -31,13 +33,30 @@ As features estão organizadas em branches independentes, cada uma tratando de u
 - Static file serving
 - Reverse Proxy
 - Load Balancing (Round Robin)
-- API Gateway com `proxy_pass`
+- API Gateway with `proxy_pass`
 - Custom error pages
-- Logging e debug
+- Logging and debugging
 
 ---
 
-## 📁 Execução local
+## 📁 Local Execution
 
 ```bash
 docker-compose up -d
+```
+
+---
+
+**This environment serves as a base for testing and experimenting with NGINX configurations.**
+
+---
+
+## 📫 Contact
+
+If you’d like to get in touch for opportunities or questions:
+
+- 🌐 [https://javadeveloper.com.br/](https://javadeveloper.com.br/)
+- 💼 [LinkedIn](https://www.linkedin.com/in/antonio-javadeveloper/)
+- 📧 antonio@javadeveloper.com.br
+
+> Developed by [AntonioJavaDeveloper](https://github.com/AntonioJavaDeveloper)
