@@ -1,57 +1,99 @@
-# NGINX with Docker – Branch: `03-reverse-proxy`
+# API Gateway with NGINX + Java + Laravel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-This branch presents an architecture with multiple NGINX servers, including a reverse proxy configured to dynamically route requests based on URL patterns. Although the examples involve static files (such as HTML and CSS) or dynamic content served by a Java application, the focus is to demonstrate that the strategy is entirely technology-agnostic — it can be applied equally to applications in PHP, Node.js, Ruby on Rails, or any other stack. This structure simulates a realistic scenario of separation of concerns between frontend and backend, with a central server intelligently and efficiently managing traffic.
+This project demonstrates a realistic setup with multiple services, including Java APIs, PHP applications (Laravel), and a reverse proxy NGINX that performs smart routing based on request paths.
 
-Additionally, the repository consumes the [game-list-api](https://github.com/AntonioJavaDeveloper/game-list-api) project as a backend service. This Java system was adapted to return data in a standardized response format, thanks to the addition of:
-
-* `@ControllerAdvice` – captures and handles exceptions globally;
-* `ResponseBodyAdvice` – intercepts responses before they are sent to the client;
-* `@Value` – reads configurations from `application.properties`, such as the application name, and inserts them automatically into the JSON responses.
-
-This standardization was designed to make it explicit which backend instance or service is providing the response, which is essential when there are multiple replicas or services behind a load balancer. The `"server"` field in the response facilitates tracking and debugging.
-
-### 🔍 Example JSON Response
-
-```json
-{
-  "server": "games1",
-  "data": {
-    "id": 1,
-    "title": "s1 - Mass Effect Trilogy",
-    "year": 2012,
-    "genre": "Role-playing (RPG), Shooter",
-    "platforms": "XBox, Playstation, PC",
-    "score": 4.8,
-    "imgUrl": "https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/game-list-api/images/1.png",
-    "shortDescription": "Lorem ipsum dolor sit amet consectetur adipisicing elit. Odit esse officiis corrupti unde repellat non quibusdam! Id nihil itaque ipsum!",
-    "longDescription": "Lorem ipsum dolor sit amet consectetur adipisicing elit. Delectus dolorum illum placeat eligendi, quis maiores veniam. Incidunt dolorum, nisi deleniti dicta odit voluptatem nam provident temporibus reprehenderit blanditiis consectetur tenetur. Dignissimos blanditiis quod corporis iste, aliquid perspiciatis architecto quasi tempore ipsam voluptates ea ad distinctio, sapiente qui, amet quidem culpa."
-  }
-}
-```
-
-The `"server"` field is automatically populated based on the `application.name` property defined in `application.properties`, allowing each backend instance to identify itself transparently.
+Additionally, the system consumes the [game-list-api](https://github.com/AntonioJavaDeveloper/game-list-api) project as backend, and now also introduces a Laravel application served internally, reinforcing the gateway's flexibility with multiple technologies.
 
 ---
 
-## 📦 Project Structure
+## 📘 What is an API Gateway?
 
-```
+An API Gateway is a server that acts as an entry point to multiple backend services. It:
+
+* Redirects requests to the correct services
+* Can rewrite URLs
+* Handles custom errors
+* Serves static or dynamic content
+
+In this project, NGINX is used as an API Gateway to route requests between Docker containers.
+
+---
+
+## 📂 Routing Examples
+
+Below are the paths routed by NGINX (API Gateway) as defined in `proxy-reverse.conf`. The table includes internal destinations, ports, and important notes on URL rewriting and service communication.
+
+| URL Path                          | Destination (Container) | Port | Content Type / Notes                                                                 |
+|----------------------------------|--------------------------|------|----------------------------------------------------------------------------------------|
+| `/`                              | `server1`                | 8081 | Redirects to `/index.html` (static HTML)                                              |
+| `/error`                         | `server1`                | 1000 | Purposely invalid port to trigger custom error page                                   |
+| `/laravel`                       | `nginx-laravel`          | 8083 | NGINX forwards the request to internal `laravel1` server, rewriting `/laravel/abc` → `/abc` |
+| `/api/**`                        | `games1`                 | 9001 | Rewrites `/api/...` to `/...` (e.g., `/api/games` → `/games`)                        |
+| `*.html`                         | `server1`                | 8081 | Any `.html` file is served by the static HTML container                               |
+| `*.css`                          | `server2`                | 8082 | Any `.css` file is served by the static CSS container                                 |
+| `/error40x.html`, `/error50x.html` | `nginx` (local)         | -    | Error files served directly from the NGINX container using `/usr/share/nginx/error` directory |
+
+> 🔄 The `/laravel` path **does not** access the PHP backend (`laravel1:9000`) directly. Instead, it goes through an intermediate NGINX (`nginx-laravel:8083`), which handles the URLs and executes PHP scripts using **FastCGI**.
+
+> 🧠 The `rewrite` usage in the `/api` block is essential to remove the `/api` prefix before forwarding to Spring Boot, ensuring the backend receives the correct URL.
+
+---
+
+## 📌 Main Endpoints (Java) + Laravel
+
+Below are the main endpoints accessible through the gateway:
+
+| Method | Path                                   | Description                             |
+|--------|----------------------------------------|-----------------------------------------|
+| GET    | `/api/games`                           | Lists all games                         |
+| GET    | `/api/games/{id}`                      | Returns details of a game               |
+| GET    | `/api/lists`                           | Lists all game lists                    |
+| GET    | `/api/lists/{listId}/games`            | Lists games of a specific list          |
+| -      | `http://localhost/laravel`             | Laravel home page                       |
+
+> These endpoints come from the `http://games1:9001` server, implemented in Java. If a load balancer is present, the `"server"` key in the JSON response indicates which backend instance responded to the request.
+
+> The request to the Laravel system first reaches the server at `http://nginx-laravel:8083`. This server forwards the request to `http://laravel1:9000` (PHP/Laravel server). **All servers are inaccessible outside the Docker context.**
+
+---
+
+## 🚫 Main Errors
+
+The table below summarizes key error scenarios identified in the NGINX reverse proxy setup. HTTP codes are handled differently depending on the source service. In all cases, the final NGINX proxy server is responsible for delivering the corresponding HTML error page to the client, discarding any custom content from intermediate servers.
+
+| Path               | Description |
+|--------------------|-------------|
+| [/abc](/abc)       | **404 Error** - Unknown address. Error is captured and returned directly to the client by the proxy server `http://nginx`, which delivers the default 404 error HTML page. |
+| [/api/abc](/api/abc) | **404 Error** - Unknown address. Error is captured by `http://games1:9001`, passed to the proxy `http://nginx`, which responds to the client with the default HTML error page. |
+| [/laravel/abc](/laravel/abc) | **404 Error** - Unknown address. Error handled by `http://laravel1:9000` with a custom HTML page. This response is forwarded to the web server `http://nginx-laravel:8083`, which passes it to the proxy `http://nginx`. The proxy ignores the custom HTML and sends the default 404 error page to the client. |
+| [/error](/error)   | **502 Error** - Bad Gateway. The request sent to `http://server1:1000` fails, since the server listens on port 8081. The proxy `http://nginx` returns the default 502 error HTML page. |
+
+> **ℹ️ Note:** All error pages are delivered to the client by the proxy server (`http://nginx`). Even if an intermediate server provides a custom HTML body, it will be ignored and replaced by the proxy’s default error page.
+
+---
+
+## 🗂️ Project Structure
+
+```txt
 .
-├── docker-compose.yml                  # Orchestration of NGINX + Java containers
-├── java/                               # Spring Boot backend project (based on game-list-api)
-├── settings/                           # NGINX configurations
-│   ├── nginx.conf                      # Main configuration
-│   └── servers/                        # Individual virtual hosts
-│       ├── proxy-reverse.conf          # Main server with routing logic
-│       ├── server1-html.conf           # Static HTML server
-│       └── server2-css.conf            # Static CSS server
-└── web/                                # Static content
-    ├── html/                           # Basic HTML (index.html)
-    ├── server1/                        # Served by server1-html
-    ├── server2/                        # Served by server2-css
-    └── error/                          # Custom error pages
+├── docker-compose.yml                 # Container orchestration (NGINX, Java, Laravel)
+├── java/                              # Spring Boot backend project (game-list-api)
+├── php/                               # Main directory for PHP projects
+│   ├── laravel1/                      # PHP backend project (Laravel)
+├── settings/                          # NGINX configurations
+│   ├── nginx.conf                     # Main configuration
+│   └── servers/                       # Individual virtual hosts
+│       ├── proxy-reverse.conf         # Smart routing in the gateway
+│       ├── server1-html.conf          # Static HTML
+│       ├── server2-css.conf           # Static CSS
+│       └── nginx-laravel.conf         # Internal communication with Laravel
+└── web/
+    ├── html/                          # Static HTML
+    ├── server1/                       # Served by server1-html
+    ├── server2/                       # Served by server2-css
+    └── error/                         # Custom error pages
         ├── error40x.html
         └── error50x.html
 ```
@@ -66,11 +108,12 @@ The `"server"` field is automatically populated based on the `application.name` 
    docker compose up -d
    ```
 
-2. Access in your browser:
+2. Access services via browser:
 
-    * [http://localhost](http://localhost) → HTML content via reverse proxy
-    * [http://localhost/style.css](http://localhost/style.css) → CSS file via reverse proxy
-    * [http://localhost/games](http://localhost/games) → Java backend API via reverse proxy
+    * [http://localhost](http://localhost) → HTML content via API Gateway
+    * [http://localhost/style.css](http://localhost/style.css) → CSS via API Gateway
+    * [http://localhost/api/games](http://localhost/api/games) → Java API (Spring)
+    * [http://localhost/laravel](http://localhost/laravel) → Laravel home interface
 
 3. Test NGINX configuration:
 
@@ -82,63 +125,26 @@ The `"server"` field is automatically populated based on the `application.name` 
 
 ## 🔧 Customization
 
-To expand the architecture with new servers or modify the reverse proxy behavior:
+To expand or change the architecture:
 
-* ⚠️ **Edit the main routing file**: every new route or proxy rule change must be reflected in `settings/nginx.conf`, which acts as the central distribution point for requests.
+* ⚠️ **Edit `nginx.conf`** for new routes or proxy logic.
 
-* ➕ **Add new servers** by creating `.conf` files in the `settings/servers/` directory, defining each server’s behavior.
+* ➕ **Add new servers** with `.conf` files in `settings/servers/`.
 
-* 🔀 **Associate a new port** in `docker-compose.yml` to the new service, if necessary. Example of an additional service:
+* 🔀 **Map new ports** via `docker-compose.yml` to ease internal testing.
 
-  ```yaml
-  server3:
-    image: nginx:1.26
-    container_name: server3-js
-    expose:
-      - "8083"
-    volumes:
-      - ./settings/nginx.conf:/etc/nginx/nginx.conf
-      - ./settings/servers/server3-js.conf:/etc/nginx/servers/server3-js.conf
-      - ./web/server3:/usr/share/nginx/server3
-      - ./web/error:/usr/share/nginx/error
-    restart: unless-stopped
-  ```
+* 🧩 **Mapped volumes** allow config reload without rebuild.
 
-* 🧩 **Volumes are mounted** to allow hot-reload of configurations without rebuilding the image.
-
-* ❗ **After changes** in the router (`nginx.conf`) or adding new services, restart the routing process by executing:
+* ❗ **Reload configuration** after changes:
 
   ```bash
   docker compose exec nginx nginx -s reload
   ```
 
-* 🧱 **Custom HTTP error pages** (such as 404 or 502) are served directly from the `web/error` directory.
+* 🧱 **Custom errors** in `web/error` are served automatically:
 
----
-
-## 📂 Routing Examples
-
-The reverse proxy behavior is defined in the `proxy-reverse.conf` file, which inspects the path and/or resource extension to decide where to forward the request:
-
-| URL Path                           | Destination (Container) | Port | Content Type            |
-| ---------------------------------- | ----------------------- | ---- | ----------------------- |
-| `/` or `/index.html`               | `server1-html`          | 8081 | Main HTML page          |
-| `/anything.html`                   | `server1-html`          | 8081 | Any static HTML         |
-| `/style.css` or `/assets/main.css` | `server2-css`           | 8082 | CSS files               |
-| `/games`, `/api/*`, `/others`      | `games1-app`            | 9001 | Java REST API (Spring)  |
-| `/nonexistent`                     | `nginx`                 | -    | Redirected to 40x error |
-
-Also, the custom error files located in `web/error` are used whenever errors like the following occur:
-
-* `400`, `401`, `404` → `error40x.html`
-* `500`, `502`, `503`, `504` → `error50x.html`
-
----
-
-## ✅ Requirements
-
-* Docker 20+
-* Docker Compose 2+
+    * `40x` → `error40x.html`
+    * `50x` → `error50x.html`
 
 ---
 
@@ -149,7 +155,7 @@ Below are some technologies and resources used in this repository:
 * **NGINX as Reverse Proxy**
   [https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/](https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/)
 
-* **Docker Compose for multi-container orchestration**
+* **Docker Compose for multi-container**
   [https://docs.docker.com/compose/](https://docs.docker.com/compose/)
 
 * **Spring Boot with `@ControllerAdvice` and `ResponseBodyAdvice`**
@@ -158,14 +164,14 @@ Below are some technologies and resources used in this repository:
       [https://www.baeldung.com/spring-controller-advice](https://www.baeldung.com/spring-controller-advice)
       [https://www.baeldung.com/spring-responsebodyadvice](https://www.baeldung.com/spring-responsebodyadvice)
 
-* **HTTP headers with `proxy_set_header` in NGINX**
-  [https://nginx.org/en/docs/http/ngx\_http\_proxy\_module.html#proxy\_set\_header](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header)
+* **HTTP Headers with `proxy_set_header` in NGINX**
+  [https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header)
 
 * **MIME files with `mime.types`**
-  [https://nginx.org/en/docs/http/ngx\_http\_core\_module.html#include](https://nginx.org/en/docs/http/ngx_http_core_module.html#include)
+  [https://nginx.org/en/docs/http/ngx_http_core_module.html#include](https://nginx.org/en/docs/http/ngx_http_core_module.html#include)
 
 * **Error handling in NGINX (`error_page`)**
-  [https://nginx.org/en/docs/http/ngx\_http\_core\_module.html#error\_page](https://nginx.org/en/docs/http/ngx_http_core_module.html#error_page)
+  [https://nginx.org/en/docs/http/ngx_http_core_module.html#error_page](https://nginx.org/en/docs/http/ngx_http_core_module.html#error_page)
 
 ---
 

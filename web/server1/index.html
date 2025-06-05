@@ -16,7 +16,7 @@
 
     <div id="endpoints">
         <section class="endpoints">
-            <h2>📌 Endpoints principais</h2>
+            <h2>📌 Endpoints principais(Java) + Laravel</h2>
             <table>
                 <thead>
                 <tr>
@@ -28,28 +28,39 @@
                 <tbody>
                 <tr>
                     <td>GET</td>
-                    <td><a class="endpoint-link" href="/games">/games</a></td>
+                    <td><a class="endpoint-link" href="/api/games">/api/games</a></td>
                     <td>Lista todos os jogos</td>
                 </tr>
                 <tr>
                     <td>GET</td>
-                    <td><a class="endpoint-link" href="/games/1">/games/{id}</a></td>
+                    <td><a class="endpoint-link" href="/api/games/1">/api/games/{id}</a></td>
                     <td>Retorna detalhes de um jogo</td>
                 </tr>
                 <tr>
                     <td>GET</td>
-                    <td><a class="endpoint-link" href="/lists">/lists</a></td>
+                    <td><a class="endpoint-link" href="/api/lists">/api/lists</a></td>
                     <td>Lista todas as listas de jogos</td>
                 </tr>
                 <tr>
                     <td>GET</td>
-                    <td><a class="endpoint-link" href="/lists/1/games">/lists/{listId}/games</a></td>
+                    <td><a class="endpoint-link" href="/api/lists/1/games">/api/lists/{listId}/games</a></td>
                     <td>Lista os jogos de uma lista</td>
+                </tr>
+                <tr>
+                    <td>-</td>
+                    <td><a class="endpoint-link" href="http://localhost/laravel">http://localhost/laravel</a></td>
+                    <td>Retorna a página inicial do Laravel</td>
                 </tr>
                 </tbody>
                 <tfooter>
                     <tr>
-                        <td colspan="3">Os endpoints acima provém do servidor localhost:9001 implementados em Java. O nome do servidor se encontra no corpo do JSON na chave "server".</td>
+                        <td colspan="3">Os endpoints acima provém do servidor http://games1:9001 implementados em Java.
+                            Caso seja implementado load balancer pode ser verificado o nome do servidor que entrega a
+                            requisição pela chave "server" que se encontra no corpo do JSON. A requisição ao sistema em
+                            Laravel chega primeiramente ao servidor http://nginx-laravel:8083. Esse servidor encaminha
+                            a requisição ao servidor http://laravel1:9000. Todos esses servidores estão inacessíveis
+                            fora do contexto docker.
+                        </td>
                     </tr>
                 </tfooter>
             </table>
@@ -67,17 +78,42 @@
                 <tbody>
                 <tr>
                     <td><a class="endpoint-link" href="/abc">/abc</a></td>
-                    <td>Erro 404 - Endpoint desconhecido</td>
+                    <td>Erro 404 - Endereço desconhecido. Erro capturado e entregue ao cliente diretamente pelo servidor
+                        proxy, http://nginx , encaminhando a paǵina HTML de erro 404.
+                    </td>
+                </tr>
+                <tr>
+                    <td><a class="endpoint-link" href="/api/abc">/api/abc</a></td>
+                    <td>Erro 404 - Endereço desconhecido. Erro capturado por http://games1:9001 e repassado ao servidor
+                        proxy, http://nginx . O servidor proxy devolve ao cliente a página HTML correspondente ao erro
+                        404.
+                    </td>
+                </tr>
+                <tr>
+                    <td><a class="endpoint-link" href="/laravel/abc">/laravel/abc</a></td>
+                    <td>Erro 404 - Endereço desconhecido. Erro capturado por http://laravel1:9000 e tratado. O servidor
+                        PHP do Laravel repassa o header HTTP com status code 404 juntamente com um body HTTP com HTML
+                        personalizado de página de erro ao servidor web http://nginx-laravel:8083. O servidor web
+                        encaminha o cabeçalho de erro 404 e o body HTML ao servidor proxy, http://nginx. O servidor
+                        proxy descarta o body HTML personalizado de página de erro e analisa o header com status code
+                        404. O servidor proxy devolve o HTML da página de erro padrão ao cliente.
+                    </td>
                 </tr>
                 <tr>
                     <td><a class="endpoint-link" href="/error">/error</a></td>
-                    <td>Error 502 - Proxy aponta para um dos servidores mas o servidor não escuta nessa porta</td>
+                    <td>Error 502 - Bad Gateway. O servidor proxy recebe a requisição do cliente e encaminha para o
+                        servidor http://server1:1000. Só que esse servidor só escuta na porta 8081. A comunicação não
+                        se estabelece. O servidor proxy devolve ao cliente a página HTML correspondente ao erro 502.
+                    </td>
                 </tr>
                 </tbody>
                 <tfooter>
-                    <tr>
-                        <td colspan="3">Todas páginas de erro são redirecionadas pelo servidor proxy</td>
-                    </tr>
+                <tr>
+                    <td colspan="3">Todas páginas de erro são redirecionadas pelo servidor proxy. Se por ventura
+                        algum servidor entregar ao servidor proxy uma página de erro personalizada no body HTTP então o
+                        servidor proxy irá descartar o body HTTP e devolver ao cliente a página de erro padrão.
+                    </td>
+                </tr>
                 </tfooter>
             </table>
         </section>

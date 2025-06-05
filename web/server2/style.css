@@ -79,7 +79,7 @@ a.button:hover {
 }
 
 .visible .endpoints{
-    max-height: 800px;
+    max-height: 1110px;
     opacity: 1;
 }
 
@@ -104,6 +104,10 @@ table th, table td {
 
 table th {
     background-color: rgba(0, 188, 212, 0.2);
+}
+
+.description {
+    font-size: 0.8rem;
 }
 
 a.endpoint-link {

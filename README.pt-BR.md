@@ -1,57 +1,105 @@
-# NGINX com Docker – Branch: `03-reverse-proxy`
+# API Gateway com NGINX + Java + Laravel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-Este branch apresenta uma arquitetura com múltiplos servidores NGINX, incluindo um proxy reverso configurado para rotear dinamicamente requisições com base em padrões de URL. Embora os exemplos envolvam arquivos estáticos (como HTML e CSS) ou conteúdos dinâmicos servidos por uma aplicação Java, o foco é demonstrar que a estratégia é totalmente agnóstica à tecnologia — podendo ser aplicada igualmente a aplicações em PHP, Node.js, Ruby on Rails ou qualquer outro stack. Essa estrutura simula um cenário realista de separação de responsabilidades entre frontend e backend, com um servidor central gerenciando o tráfego de forma inteligente e eficiente.
+Este projeto demonstra um cenário realista com múltiplos serviços, incluindo APIs em Java, aplicações PHP (Laravel), e um gateway reverso NGINX que realiza o roteamento inteligente com base nos caminhos de requisição.
 
-Além disso, o repositório consome o projeto [game-list-api](https://github.com/AntonioJavaDeveloper/game-list-api) como serviço backend. Esse sistema Java foi adaptado para retornar dados em um formato padronizado de resposta, graças à adição de:
-
-* `@ControllerAdvice` – captura e trata exceções de forma global;
-* `ResponseBodyAdvice` – intercepta as respostas antes de serem enviadas ao cliente;
-* `@Value` – permite ler configurações do `application.properties`, como o nome da aplicação, e inseri-las automaticamente nas respostas JSON.
-
-Essa padronização foi pensada para tornar explícito qual instância ou serviço backend está provendo a resposta, o que se torna essencial quando há múltiplas réplicas ou serviços por trás de um balanceador de carga. O campo `"server"` na resposta facilita o rastreamento e depuração.
-
-### 🔍 Exemplo de resposta JSON
-
-```json
-{
-  "server": "games1",
-  "data": {
-    "id": 1,
-    "title": "s1 - Mass Effect Trilogy",
-    "year": 2012,
-    "genre": "Role-playing (RPG), Shooter",
-    "platforms": "XBox, Playstation, PC",
-    "score": 4.8,
-    "imgUrl": "https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/game-list-api/images/1.png",
-    "shortDescription": "Lorem ipsum dolor sit amet consectetur adipisicing elit. Odit esse officiis corrupti unde repellat non quibusdam! Id nihil itaque ipsum!",
-    "longDescription": "Lorem ipsum dolor sit amet consectetur adipisicing elit. Delectus dolorum illum placeat eligendi, quis maiores veniam. Incidunt dolorum, nisi deleniti dicta odit voluptatem nam provident temporibus reprehenderit blanditiis consectetur tenetur. Dignissimos blanditiis quod corporis iste, aliquid perspiciatis architecto quasi tempore ipsam voluptates ea ad distinctio, sapiente qui, amet quidem culpa."
-  }
-}
-```
-
-O campo `"server"` é preenchido automaticamente com base na propriedade `application.name`, definida no `application.properties`, permitindo que cada instância backend se identifique de forma transparente.
+Além disso, o sistema consome o projeto [game-list-api](https://github.com/AntonioJavaDeveloper/game-list-api) como backend, e agora também introduz uma aplicação Laravel servida internamente, reforçando a flexibilidade de uso do gateway com múltiplas tecnologias.
 
 ---
 
-## 📦 Estrutura do Projeto
+## 📘 O que é um API Gateway?
 
-```
+Um API Gateway é um servidor que atua como ponto de entrada para múltiplos serviços backend. Ele:
+
+* Redireciona requisições para os serviços corretos
+* Pode reescrever URLs
+* Trata erros personalizados
+* Serve conteúdos estáticos ou dinâmicos
+
+No contexto deste projeto, o NGINX é usado como API Gateway para rotear requisições entre containers Docker.
+
+---
+
+## 📂 Exemplos de Roteamento
+
+A seguir estão os caminhos roteados pelo NGINX (API Gateway) conforme definidos em `proxy-reverse.conf`. A tabela inclui os destinos internos, portas e observações importantes sobre reescrita de URL e comunicação entre serviços.
+
+| Caminho da URL                     | Destino (Container) | Porta | Tipo de Conteúdo / Observações                                                                     |
+| ---------------------------------- | ------------------- | ----- | -------------------------------------------------------------------------------------------------- |
+| `/`                                | `server1`           | 8081  | Redireciona para `/index.html` (HTML estático)                                                     |
+| `/error`                           | `server1`           | 1000  | Porta inválida proposital para acionar página de erro personalizada                                |
+| `/laravel`                         | `nginx-laravel`     | 8083  | NGINX encaminha a requisição ao servidor interno `laravel1`. Reescrevendo `/laravel/abc` → `/abc`  |
+| `/api/**`                          | `games1`            | 9001  | Reescreve `/api/...` para `/...` (ex: `/api/games` → `/games`)                                     |
+| `*.html`                           | `server1`           | 8081  | Qualquer arquivo `.html` é servido pelo container de HTML estático                                 |
+| `*.css`                            | `server2`           | 8082  | Qualquer arquivo `.css` é servido pelo container de CSS estático                                   |
+| `/error40x.html`, `/error50x.html` | `nginx` (local)     | -     | Arquivos de erro servidos diretamente do container NGINX usando diretório `/usr/share/nginx/error` |
+
+> 🔄 O caminho `/laravel` **não** acessa diretamente o backend PHP (`laravel1:9000`). Em vez disso, ele passa por um NGINX intermediário (`nginx-laravel:8083`), que trata as URLs e executa os scripts PHP por meio do **FastCGI**.
+
+> 🧠 O uso de `rewrite` no bloco `/api` é essencial para remover o prefixo `/api` antes de encaminhar ao Spring Boot, garantindo que o backend receba a URL no formato correto.
+
+---
+
+## 📌 Endpoints principais(Java) + Laravel
+
+Abaixo estão listados os principais endpoints acessíveis através do gateway:
+
+
+| Método | Caminho                                  | Descrição                                |
+|--------|------------------------------------------|------------------------------------------|
+| GET    | `/api/games`                             | Lista todos os jogos                     |
+| GET    | `/api/games/{id}`                        | Retorna detalhes de um jogo              |
+| GET    | `/api/lists`                             | Lista todas as listas de jogos           |
+| GET    | `/api/lists/{listId}/games`              | Lista os jogos de uma lista específica   |
+| -      | `http://localhost/laravel`               | Página inicial do Laravel                |
+
+
+> Os endpoints acima provêm do servidor `http://games1:9001`, implementado em Java. Se houver um balanceador de carga no ambiente, a chave `"server"` presente nas respostas JSON indicará qual instância de backend atendeu a requisição.
+
+> A requisição ao sistema em Laravel chega primeiramente ao servidor `http://nginx-laravel:8083`. Esse servidor encaminha a requisição ao servidor `http://laravel1:9000` (servidor PHP/Laravel). **Todos os servidores estão inacessíveis fora do contexto Docker.**
+
+
+---
+
+## 🚫 Erros principais
+
+A tabela abaixo resume os principais cenários de erro identificados no ambiente com proxy reverso NGINX. Os códigos HTTP são tratados de diferentes formas, dependendo do serviço de origem. Em todos os casos, o servidor proxy NGINX final é responsável por devolver ao cliente a página HTML correspondente ao erro, descartando qualquer conteúdo personalizado dos servidores intermediários.
+
+
+| Caminho            | Descrição |
+|--------------------|-----------|
+| [/abc](/abc)       | **Erro 404** - Endereço desconhecido. Erro capturado e entregue diretamente ao cliente pelo servidor proxy `http://nginx`, que devolve a página HTML padrão de erro 404. |
+| [/api/abc](/api/abc) | **Erro 404** - Endereço desconhecido. Erro capturado pelo serviço `http://games1:9001`, repassado ao proxy `http://nginx`, que responde ao cliente com a página de erro HTML padrão. |
+| [/laravel/abc](/laravel/abc) | **Erro 404** - Endereço desconhecido. Erro tratado por `http://laravel1:9000` com uma página HTML personalizada. Essa resposta é repassada ao servidor web `http://nginx-laravel:8083`, que a encaminha ao proxy `http://nginx`. O proxy ignora o HTML personalizado e envia ao cliente sua página padrão de erro 404. |
+| [/error](/error)   | **Erro 502** - Bad Gateway. A requisição enviada ao `http://server1:1000` falha, pois o servidor escuta na porta 8081. O proxy `http://nginx` devolve ao cliente a página HTML padrão de erro 502. |
+
+
+> **ℹ️ Nota:** Todas as páginas de erro são entregues ao cliente pelo servidor proxy (`http://nginx`). Mesmo que um servidor intermediário forneça uma página personalizada no corpo da resposta, ela será ignorada e substituída pela versão padrão de erro do proxy.
+
+---
+
+## 🗂️ Estrutura do Projeto
+
+```txt
 .
-├── docker-compose.yml                  # Orquestração dos containers NGINX + Java
-├── java/                               # Projeto backend em Spring Boot (baseado no repositório: game-list-api)
-├── settings/                           # Configurações do NGINX
-│   ├── nginx.conf                      # Configuração principal
-│   └── servers/                        # Virtual hosts individuais
-│       ├── proxy-reverse.conf          # Servidor principal com lógica de roteamento
-│       ├── server1-html.conf           # Servidor de HTML estático
-│       └── server2-css.conf            # Servidor de CSS estático
-└── web/                                # Conteúdo estático
-    ├── html/                           # HTML básico (index.html)
-    ├── server1/                        # Servido por server1-html
-    ├── server2/                        # Servido por server2-css
-    └── error/                          # Páginas personalizadas de erro
+.
+├── docker-compose.yml                 # Orquestração dos containers (NGINX, Java, Laravel)
+├── java/                              # Projeto backend em Spring Boot (game-list-api)
+├── php/                               # Diretório principal dos projetos PHP
+│   ├── laravel1/                      # Projeto backend em PHP (Laravel)
+├── settings/                          # Configurações NGINX
+│   ├── nginx.conf                     # Configuração principal
+│   └── servers/                       # Virtual hosts individuais
+│       ├── proxy-reverse.conf         # Roteamento inteligente no gateway
+│       ├── server1-html.conf          # HTML estático
+│       ├── server2-css.conf           # CSS estático
+│       └── nginx-laravel.conf         # Comunicação interna com Laravel
+└── web/
+    ├── html/                          # HTML estático
+    ├── server1/                       # Servido por server1-html
+    ├── server2/                       # Servido por server2-css
+    └── error/                         # Páginas de erro personalizadas
         ├── error40x.html
         └── error50x.html
 ```
@@ -66,11 +114,12 @@ O campo `"server"` é preenchido automaticamente com base na propriedade `applic
    docker compose up -d
    ```
 
-2. Acesse no navegador:
+2. Acesse os serviços via navegador:
 
-   * [http://localhost](http://localhost) → Conteúdo HTML via proxy reverso
-   * [http://localhost/style.css](http://localhost/style.css) → Arquivo CSS via proxy reverso
-   * [http://localhost/games](http://localhost/games) → API backend Java via proxy reverso
+    * [http://localhost](http://localhost) → Conteúdo HTML via API Gateway
+    * [http://localhost/style.css](http://localhost/style.css) → CSS via API Gateway
+    * [http://localhost/api/games](http://localhost/api/games) → API Java (Spring)
+    * [http://localhost/laravel](http://localhost/laravel) → Interface inicial do Laravel
 
 3. Teste a configuração do NGINX:
 
@@ -82,60 +131,26 @@ O campo `"server"` é preenchido automaticamente com base na propriedade `applic
 
 ## 🔧 Personalização
 
-Para expandir a arquitetura com novos servidores ou modificar o comportamento do proxy reverso:
+Para expandir ou alterar a arquitetura:
 
-* ⚠️ **Edite o arquivo principal de roteamento**: toda nova rota ou alteração de regras de proxy precisa ser refletida em `settings/nginx.conf`, que atua como ponto central de distribuição das requisições.
-* ➕ **Adicione novos servidores** criando arquivos `.conf` no diretório `settings/servers/`, definindo o comportamento de cada servidor individual.
-* 🔀 **Associe uma nova porta** no `docker-compose.yml` ao novo serviço, se necessário. Exemplo de serviço adicional:
+* ⚠️ **Edite o `nginx.conf`** para novas rotas ou lógicas no proxy.
 
-  ```yaml
-  server3:
-    image: nginx:1.26
-    container_name: server3-js
-    expose:
-      - "8083"
-    volumes:
-      - ./settings/nginx.conf:/etc/nginx/nginx.conf
-      - ./settings/servers/server3-js.conf:/etc/nginx/servers/server3-js.conf
-      - ./web/server3:/usr/share/nginx/server3
-      - ./web/error:/usr/share/nginx/error
-    restart: unless-stopped
+* ➕ **Adicione novos servidores** com arquivos `.conf` em `settings/servers/`.
+
+* 🔀 **Mapeie novas portas** via `docker-compose.yml` para facilitar testes internos.
+
+* 🧩 **Volumes mapeados** permitem recarregamento das configurações sem rebuild.
+
+* ❗ **Recarregue a configuração** após alterações:
+
+  ```bash
+  docker compose exec nginx nginx -s reload
   ```
 
-* 🧩 **Os volumes são montados** para permitir hot-reload das configurações sem necessidade de rebuild da imagem.
-* ❗ **Após alterações** no roteador (`nginx.conf`) ou adição de novos serviços, reinicie o processo de roteamento executando:
+* 🧱 **Erros personalizados** em `web/error` são automaticamente servidos:
 
-    ```bash
-    docker compose exec nginx nginx -s reload
-    ```
-  
-* 🧱 **Páginas de erro HTTP personalizadas** (como 404 ou 502) são servidas diretamente do diretório `web/error`. 
-
----
-
-## 📂 Exemplos de Roteamento
-
-O comportamento do proxy reverso é definido no arquivo `proxy-reverse.conf`, que inspeciona o caminho (path) e/ou a extensão do recurso requisitado para decidir para onde encaminhar a requisição:
-
-| Caminho da URL                      | Destino (Container) | Porta | Tipo de Conteúdo            |
-| ----------------------------------- | ------------------- | ----- | --------------------------- |
-| `/` ou `/index.html`                | `server1-html`      | 8081  | Página HTML principal       |
-| `/qualquer-coisa.html`              | `server1-html`      | 8081  | Qualquer HTML estático      |
-| `/estilo.css` ou `/assets/main.css` | `server2-css`       | 8082  | Arquivos CSS                |
-| `/games`, `/api/*`, `/outros`       | `games1-app`        | 9001  | API REST em Java (Spring)   |
-| `/inexistente`                      | `nginx`             | -     | Redirecionado para erro 40x |
-
-Além disso, os arquivos de erro personalizados localizados em `web/error` são utilizados sempre que ocorrem erros como:
-
-* `400`, `401`, `404` → `error40x.html`
-* `500`, `502`, `503`, `504` → `error50x.html`
-
----
-
-## ✅ Requisitos
-
-* Docker 20+
-* Docker Compose 2+
+    * `40x` → `error40x.html`
+    * `50x` → `error50x.html`
 
 ---
 
@@ -151,9 +166,9 @@ Abaixo, algumas tecnologias e recursos utilizados neste repositório:
 
 * **Spring Boot com `@ControllerAdvice` e `ResponseBodyAdvice`**
 
-   * Interceptação de erros e personalização de respostas:
-     [https://www.baeldung.com/spring-controller-advice](https://www.baeldung.com/spring-controller-advice)
-     [https://www.baeldung.com/spring-responsebodyadvice](https://www.baeldung.com/spring-responsebodyadvice)
+    * Interceptação de erros e personalização de respostas:
+      [https://www.baeldung.com/spring-controller-advice](https://www.baeldung.com/spring-controller-advice)
+      [https://www.baeldung.com/spring-responsebodyadvice](https://www.baeldung.com/spring-responsebodyadvice)
 
 * **Headers HTTP com `proxy_set_header` no NGINX**
   [https://nginx.org/en/docs/http/ngx\_http\_proxy\_module.html#proxy\_set\_header](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header)

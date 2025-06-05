@@ -122,4 +122,30 @@ fabric.properties
 #.env file
 .env
 
+/php/laravel1/.phpunit.cache
+/php/laravel1/public/build
+/php/laravel1/public/hot
+/php/laravel1/storage/pail
+/php/laravel1/.env.backup
+/php/laravel1/.env.production
+/php/laravel1/.phpactor.json
+/php/laravel1/auth.json
+/php/laravel1/.fleet
+/php/laravel1/vendor/
+/php/laravel1/node_modules/
+/php/laravel1/public/storage
+/php/laravel1/storage/*.key
+/php/laravel1/storage/app/public
+/php/laravel1/storage/framework/cache/data
+/php/laravel1/storage/framework/sessions
+/php/laravel1/storage/framework/views
+/php/laravel1/storage/logs
+/php/laravel1/.phpunit.result.cache
+/php/laravel1/.env
+/php/laravel1/.env.*
+/php/laravel1/Homestead.json
+/php/laravel1/Homestead.yaml
+/php/laravel1/npm-debug.log
+/php/laravel1/yarn-error.log
+
 # End of https://www.toptal.com/developers/gitignore/api/intellij+all

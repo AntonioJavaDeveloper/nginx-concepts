@@ -12,6 +12,9 @@ services:
     restart: unless-stopped
     depends_on:
       - games1
+      - nginx-laravel
+      - server1
+      - server2
 
   server1:
     image: nginx:1.26
@@ -45,3 +48,31 @@ services:
     expose:
       - "9001"
     restart: unless-stopped
+
+  laravel1:
+    build:
+      context: ./php/laravel1
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    working_dir: /var/www/
+    expose:
+      - "9000"
+    volumes:
+      - ./php/laravel1:/var/www
+    command: ["/usr/local/bin/entrypoint.sh"]
+
+  nginx-laravel:
+    image: nginx:1.26
+    container_name: nginx-laravel
+    expose:
+      - "8083"
+    volumes:
+      - ./settings/nginx.conf:/etc/nginx/nginx.conf
+      - ./settings/servers/laravel.conf:/etc/nginx/servers/laravel.conf
+      - ./php/laravel1:/var/www
+    depends_on:
+      - games1
+
+networks:
+  default:
+    name: nginx-net
