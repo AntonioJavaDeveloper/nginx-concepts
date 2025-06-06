@@ -4,17 +4,18 @@ services:
     container_name: nginx-server
     ports:
       - "80:80"
-      - "8080:8080"
     volumes:
       - ./settings/nginx.conf:/etc/nginx/nginx.conf
       - ./settings/servers/proxy-reverse.conf:/etc/nginx/servers/proxy-reverse.conf:ro
       - ./web/error:/usr/share/nginx/error
     restart: unless-stopped
     depends_on:
-      - games1
+      - nginx-java-balancer
       - nginx-laravel
       - server1
       - server2
+    networks:
+      - reverse-proxy
 
   server1:
     image: nginx:1.26
@@ -27,6 +28,9 @@ services:
       - ./web/server1:/usr/share/nginx/server1
       - ./web/error:/usr/share/nginx/error
     restart: unless-stopped
+    networks:
+      - reverse-proxy
+      - static-content
 
   server2:
     image: nginx:1.26
@@ -39,6 +43,22 @@ services:
       - ./web/server2:/usr/share/nginx/server2
       - ./web/error:/usr/share/nginx/error
     restart: unless-stopped
+    networks:
+      - reverse-proxy
+      - static-content
+
+  nginx-java-balancer:
+    image: nginx:1.26
+    container_name: nginx-java-balancer
+    expose:
+      - "8080"
+    volumes:
+      - ./settings/nginx.conf:/etc/nginx/nginx.conf
+      - ./settings/servers/nginx-java-balancer.conf:/etc/nginx/servers/nginx-java-balancer.conf
+    restart: unless-stopped
+    networks:
+      - reverse-proxy
+      - java
 
   games1:
     build:
@@ -48,18 +68,30 @@ services:
     expose:
       - "9001"
     restart: unless-stopped
+    networks:
+      - java
 
-  laravel1:
+  games2:
     build:
-      context: ./php/laravel1
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    working_dir: /var/www/
+      context: ./java/games2
+      dockerfile: docker/Dockerfile
+    container_name: games2-app
     expose:
-      - "9000"
-    volumes:
-      - ./php/laravel1:/var/www
-    command: ["/usr/local/bin/entrypoint.sh"]
+      - "9001"
+    restart: unless-stopped
+    networks:
+      - java
+
+  games3:
+    build:
+      context: ./java/games3
+      dockerfile: docker/Dockerfile
+    container_name: games3-app
+    ports:
+      - "9001:9001"
+    restart: unless-stopped
+    networks:
+      - java
 
   nginx-laravel:
     image: nginx:1.26
@@ -71,8 +103,31 @@ services:
       - ./settings/servers/laravel.conf:/etc/nginx/servers/laravel.conf
       - ./php/laravel1:/var/www
     depends_on:
-      - games1
+      - laravel1
+    networks:
+      - reverse-proxy
+      - laravel
+
+  laravel1:
+    build:
+      context: ./php/laravel1
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    working_dir: /var/www/
+    expose:
+      - "9000"
+    volumes:
+      - ./php/laravel1:/var/www
+    command: [ "/usr/local/bin/entrypoint.sh" ]
+    networks:
+      - laravel
 
 networks:
-  default:
-    name: nginx-net
+  static-content:
+    driver: bridge
+  java:
+    driver: bridge
+  laravel:
+    driver: bridge
+  reverse-proxy:
+    driver: bridge

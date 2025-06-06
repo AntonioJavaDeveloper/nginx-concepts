@@ -1,0 +1,20 @@
+### [GET] /games - Get all registered games
+GET http://localhost:8080/games
+
+### [GET] /games/{id} - Get game details by ID
+GET http://localhost:8080/games/2
+
+### [GET] /lists - Get all game lists
+GET http://localhost:8080/lists
+
+### [GET] /lists/{listId}/games - Get all games from a specific list
+GET http://localhost:8080/lists/1/games
+
+### [POST] /lists/{listId}/replacement - Move a game within a specific list
+POST http://localhost:8080/lists/1/replacement
+Content-Type: application/json
+
+{
+  "sourceIndex": 3,
+  "destinationIndex": 1
+}

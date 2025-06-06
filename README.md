@@ -1,76 +1,24 @@
-# API Gateway with NGINX + Java + Laravel
+# Java Load Balancing and API Gateway Architecture with NGINX and Laravel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-This project demonstrates a realistic setup with multiple services, including Java APIs, PHP applications (Laravel), and a reverse proxy NGINX that performs smart routing based on request paths.
+This project demonstrates a realistic setup with multiple services, including Java APIs, PHP applications (Laravel), and a reverse NGINX gateway with **load balancing across multiple Java backend instances**.
 
-Additionally, the system consumes the [game-list-api](https://github.com/AntonioJavaDeveloper/game-list-api) project as backend, and now also introduces a Laravel application served internally, reinforcing the gateway's flexibility with multiple technologies.
+Additionally, the system consumes the [game-list-api](https://github.com/AntonioJavaDeveloper/game-list-api) project as a backend, and also integrates a Laravel application served internally—showcasing the gateway's flexibility with multiple technologies.
 
 ---
 
 ## 📘 What is an API Gateway?
 
-An API Gateway is a server that acts as an entry point to multiple backend services. It:
+An API Gateway is a server that acts as an entry point for multiple backend services. It:
 
 * Redirects requests to the correct services
 * Can rewrite URLs
+* Performs load balancing
 * Handles custom errors
 * Serves static or dynamic content
 
-In this project, NGINX is used as an API Gateway to route requests between Docker containers.
-
----
-
-## 📂 Routing Examples
-
-Below are the paths routed by NGINX (API Gateway) as defined in `proxy-reverse.conf`. The table includes internal destinations, ports, and important notes on URL rewriting and service communication.
-
-| URL Path                          | Destination (Container) | Port | Content Type / Notes                                                                 |
-|----------------------------------|--------------------------|------|----------------------------------------------------------------------------------------|
-| `/`                              | `server1`                | 8081 | Redirects to `/index.html` (static HTML)                                              |
-| `/error`                         | `server1`                | 1000 | Purposely invalid port to trigger custom error page                                   |
-| `/laravel`                       | `nginx-laravel`          | 8083 | NGINX forwards the request to internal `laravel1` server, rewriting `/laravel/abc` → `/abc` |
-| `/api/**`                        | `games1`                 | 9001 | Rewrites `/api/...` to `/...` (e.g., `/api/games` → `/games`)                        |
-| `*.html`                         | `server1`                | 8081 | Any `.html` file is served by the static HTML container                               |
-| `*.css`                          | `server2`                | 8082 | Any `.css` file is served by the static CSS container                                 |
-| `/error40x.html`, `/error50x.html` | `nginx` (local)         | -    | Error files served directly from the NGINX container using `/usr/share/nginx/error` directory |
-
-> 🔄 The `/laravel` path **does not** access the PHP backend (`laravel1:9000`) directly. Instead, it goes through an intermediate NGINX (`nginx-laravel:8083`), which handles the URLs and executes PHP scripts using **FastCGI**.
-
-> 🧠 The `rewrite` usage in the `/api` block is essential to remove the `/api` prefix before forwarding to Spring Boot, ensuring the backend receives the correct URL.
-
----
-
-## 📌 Main Endpoints (Java) + Laravel
-
-Below are the main endpoints accessible through the gateway:
-
-| Method | Path                                   | Description                             |
-|--------|----------------------------------------|-----------------------------------------|
-| GET    | `/api/games`                           | Lists all games                         |
-| GET    | `/api/games/{id}`                      | Returns details of a game               |
-| GET    | `/api/lists`                           | Lists all game lists                    |
-| GET    | `/api/lists/{listId}/games`            | Lists games of a specific list          |
-| -      | `http://localhost/laravel`             | Laravel home page                       |
-
-> These endpoints come from the `http://games1:9001` server, implemented in Java. If a load balancer is present, the `"server"` key in the JSON response indicates which backend instance responded to the request.
-
-> The request to the Laravel system first reaches the server at `http://nginx-laravel:8083`. This server forwards the request to `http://laravel1:9000` (PHP/Laravel server). **All servers are inaccessible outside the Docker context.**
-
----
-
-## 🚫 Main Errors
-
-The table below summarizes key error scenarios identified in the NGINX reverse proxy setup. HTTP codes are handled differently depending on the source service. In all cases, the final NGINX proxy server is responsible for delivering the corresponding HTML error page to the client, discarding any custom content from intermediate servers.
-
-| Path               | Description |
-|--------------------|-------------|
-| [/abc](/abc)       | **404 Error** - Unknown address. Error is captured and returned directly to the client by the proxy server `http://nginx`, which delivers the default 404 error HTML page. |
-| [/api/abc](/api/abc) | **404 Error** - Unknown address. Error is captured by `http://games1:9001`, passed to the proxy `http://nginx`, which responds to the client with the default HTML error page. |
-| [/laravel/abc](/laravel/abc) | **404 Error** - Unknown address. Error handled by `http://laravel1:9000` with a custom HTML page. This response is forwarded to the web server `http://nginx-laravel:8083`, which passes it to the proxy `http://nginx`. The proxy ignores the custom HTML and sends the default 404 error page to the client. |
-| [/error](/error)   | **502 Error** - Bad Gateway. The request sent to `http://server1:1000` fails, since the server listens on port 8081. The proxy `http://nginx` returns the default 502 error HTML page. |
-
-> **ℹ️ Note:** All error pages are delivered to the client by the proxy server (`http://nginx`). Even if an intermediate server provides a custom HTML body, it will be ignored and replaced by the proxy’s default error page.
+In this project, NGINX is used both as a gateway and as a load balancer for the Java APIs (`games1`, `games2`, `games3`).
 
 ---
 
@@ -78,19 +26,24 @@ The table below summarizes key error scenarios identified in the NGINX reverse p
 
 ```txt
 .
+.
 ├── docker-compose.yml                 # Container orchestration (NGINX, Java, Laravel)
-├── java/                              # Spring Boot backend project (game-list-api)
-├── php/                               # Main directory for PHP projects
+├── java/                              # Spring Boot backend (game-list-api)
+│   ├── games1/                        # Java service for game API 1
+│   ├── games2/                        # Java service for game API 2
+│   └── games3/                        # Java service for game API 3
+├── php/                               # PHP project directory
 │   ├── laravel1/                      # PHP backend project (Laravel)
-├── settings/                          # NGINX configurations
-│   ├── nginx.conf                     # Main configuration
+├── settings/                          # NGINX configuration
+│   ├── nginx.conf                     # Main config
 │   └── servers/                       # Individual virtual hosts
-│       ├── proxy-reverse.conf         # Smart routing in the gateway
+│       ├── proxy-reverse.conf         # Smart routing via gateway
 │       ├── server1-html.conf          # Static HTML
 │       ├── server2-css.conf           # Static CSS
-│       └── nginx-laravel.conf         # Internal communication with Laravel
+│       └── nginx-laravel.conf         # Internal Laravel communication
+│       └── nginx-java-balancer.conf   # Load balancing for Java services (games1, games2, games3)
 └── web/
-    ├── html/                          # Static HTML
+    ├── html/                          # Static HTML content
     ├── server1/                       # Served by server1-html
     ├── server2/                       # Served by server2-css
     └── error/                         # Custom error pages
@@ -100,88 +53,129 @@ The table below summarizes key error scenarios identified in the NGINX reverse p
 
 ---
 
-## 🚀 How to Run
+## 📦 New: Load Balancing with NGINX
 
-1. Start the containers:
+Now, the `/api/**` endpoint doesn't point directly to the `games1` container. Instead, a new service called `nginx-java-balancer` was created to perform **load balancing among the three Java services**:
 
-   ```bash
-   docker compose up -d
-   ```
+* `games1` (internal port 9001)
+* `games2` (internal port 9001)
+* `games3` (internal port 9001)
 
-2. Access services via browser:
+These services are balanced using the `upstream` block in `nginx-java-balancer.conf`.
 
-    * [http://localhost](http://localhost) → HTML content via API Gateway
-    * [http://localhost/style.css](http://localhost/style.css) → CSS via API Gateway
-    * [http://localhost/api/games](http://localhost/api/games) → Java API (Spring)
-    * [http://localhost/laravel](http://localhost/laravel) → Laravel home interface
+```nginx
+upstream games_api {
+    server games1:9001;
+    server games2:9001;
+    server games3:9001;
+}
+```
 
-3. Test NGINX configuration:
-
-   ```bash
-   docker compose exec nginx nginx -t
-   ```
-
----
-
-## 🔧 Customization
-
-To expand or change the architecture:
-
-* ⚠️ **Edit `nginx.conf`** for new routes or proxy logic.
-
-* ➕ **Add new servers** with `.conf` files in `settings/servers/`.
-
-* 🔀 **Map new ports** via `docker-compose.yml` to ease internal testing.
-
-* 🧩 **Mapped volumes** allow config reload without rebuild.
-
-* ❗ **Reload configuration** after changes:
-
-  ```bash
-  docker compose exec nginx nginx -s reload
-  ```
-
-* 🧱 **Custom errors** in `web/error` are served automatically:
-
-    * `40x` → `error40x.html`
-    * `50x` → `error50x.html`
+All `/api/**` requests reach the main proxy and are then forwarded to `nginx-java-balancer`, which distributes them evenly across the three Java containers.
 
 ---
 
-## 📎 Technical References
+## 🛠️ Java Service Configuration
 
-Below are some technologies and resources used in this repository:
+Each service (`games1`, `games2`, `games3`) is configured with:
 
-* **NGINX as Reverse Proxy**
-  [https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/](https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/)
+* `server.port=9001`
+* `server.name=games1`, `games2`, or `games3` (to identify the response source)
+* `spring.profiles.active`, `cors.origins`, and other common properties
 
-* **Docker Compose for multi-container**
-  [https://docs.docker.com/compose/](https://docs.docker.com/compose/)
+Example API response:
 
-* **Spring Boot with `@ControllerAdvice` and `ResponseBodyAdvice`**
+```json
+{
+  "server": "games2",
+  "data": {
+    "id": 1,
+    "title": "Mass Effect Trilogy"
+  }
+}
+```
 
-    * Error interception and response customization:
-      [https://www.baeldung.com/spring-controller-advice](https://www.baeldung.com/spring-controller-advice)
-      [https://www.baeldung.com/spring-responsebodyadvice](https://www.baeldung.com/spring-responsebodyadvice)
-
-* **HTTP Headers with `proxy_set_header` in NGINX**
-  [https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header)
-
-* **MIME files with `mime.types`**
-  [https://nginx.org/en/docs/http/ngx_http_core_module.html#include](https://nginx.org/en/docs/http/ngx_http_core_module.html#include)
-
-* **Error handling in NGINX (`error_page`)**
-  [https://nginx.org/en/docs/http/ngx_http_core_module.html#error_page](https://nginx.org/en/docs/http/ngx_http_core_module.html#error_page)
+This allows you to easily verify whether the load balancer is working—each request might return a different service (`games1`, `games2`, or `games3`).
 
 ---
 
-**This environment serves as a testing and experimentation base for reverse proxy practices, static content separation, and dynamic APIs.**
+## 📂 Routing Examples
+
+### Updated Configuration (`proxy-reverse.conf`):
+
+| URL Path                           | Destination (Container) | Port | Notes                                                                 |
+| ---------------------------------- | ----------------------- | ---- | --------------------------------------------------------------------- |
+| `/api/**`                          | `nginx-java-balancer`   | 8080 | Load balancing between `games1`, `games2`, `games3`, with URL rewrite |
+| `/laravel`                         | `nginx-laravel`         | 8083 | Laravel app served by intermediary NGINX, with path rewrite           |
+| `/`, `*.html`                      | `server1`               | 8081 | Static HTML content                                                   |
+| `*.css`                            | `server2`               | 8082 | Static CSS content                                                    |
+| `/error40x.html`, `/error50x.html` | `nginx` (local)         | -    | Error files served directly from NGINX                                |
+
+> 🔄 The use of `rewrite ^/api(/.*)$ $1 break;` in the `/api` block is **essential** to remove the `/api` prefix before forwarding the request to the Java backend.
 
 ---
 
-## 📫 Contact
+## 🌐 Docker Networks: Organized and Secure Communication
 
-If you want to get in touch for opportunities or questions:
+The architecture has been improved by separating services into distinct networks as defined in the `docker-compose.yml`. Each group of services communicates only with the services it truly needs, thanks to explicit Docker network definitions.
+
+This network isolation greatly improves:
+
+* **🔒 Security**: services that don't need to talk are completely isolated, reducing the attack surface
+* **🧹 Organization**: clearer architecture and dependency tracing
+* **🚀 Performance and scalability**: avoids unnecessary traffic and improves system efficiency
+* **🛠️ Debugging**: easier to identify communication issues
+* **📦 DevOps Best Practice**: widely recommended approach in production environments with multiple containers
+
+### 🔗 Networks and Services
+
+| Network          | Associated Services                                                             |
+| ---------------- | ------------------------------------------------------------------------------- |
+| `reverse-proxy`  | `nginx`, `nginx-java-balancer`, `nginx-laravel`, `server1-html`, `server2-css`  |
+| `static-content` | `server1-html`, `server2-css`                                                   |
+| `java`           | `nginx-java-balancer`, `games1-app`, `games2-app`, `games3-app`                 |
+| `laravel`        | `nginx-laravel`, `laravel1`                                                     |
+| `default`        | Not used — all services are explicitly connected to their own specific networks |
+
+> ℹ️ **Fun fact:** in the reverse proxy, `server1-html` is responsible for serving `*.html` files, while `server2-css` handles `*.css`, neatly organizing static content.
+
+---
+
+## 📌 Key Endpoints
+
+| Method | Path                        | Description                    |
+| ------ | --------------------------- | ------------------------------ |
+| GET    | `/api/games`                | Lists all games                |
+| GET    | `/api/games/{id}`           | Returns game details           |
+| GET    | `/api/lists`                | Lists all game lists           |
+| GET    | `/api/lists/{listId}/games` | Lists games in a specific list |
+| -      | `http://localhost/laravel`  | Laravel homepage               |
+
+---
+
+## 🧪 Testing Load Balancing
+
+Make multiple requests to the `/api/games` endpoint. You should observe that the `"server"` field in the response alternates between `games1`, `games2`, and `games3`, confirming that the load balancer is working.
+
+---
+
+## 🚀 Running the Containers
+
+```bash
+docker compose up --build
+```
+
+Make sure all ports and volumes are properly configured.
+
+---
+
+**This environment is designed as a testing and experimentation platform for reverse proxy practices, static content separation, and dynamic API management.**
+
+---
+
+## 📩 Contact
+
+For opportunities or questions:
 
 * 🌐 [https://javadeveloper.com.br/](https://javadeveloper.com.br/)
 * 💼 [LinkedIn](https://www.linkedin.com/in/antonio-javadeveloper/)
