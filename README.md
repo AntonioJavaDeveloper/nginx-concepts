@@ -35,6 +35,12 @@ The `"server"` field is automatically populated based on the `application.name` 
 
 ---
 
+## 🏗️ Diagrama Arquitetural
+
+![Diagrama Arquitetural](https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/02-proxy-reverse-java.png)
+
+---
+
 ## 📦 Project Structure
 
 ```

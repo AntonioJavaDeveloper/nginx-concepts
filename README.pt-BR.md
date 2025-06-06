@@ -35,6 +35,12 @@ O campo `"server"` é preenchido automaticamente com base na propriedade `applic
 
 ---
 
+## 🏗️ Diagrama Arquitetural
+
+![Diagrama Arquitetural](https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/02-proxy-reverse-java.png)
+
+---
+
 ## 📦 Estrutura do Projeto
 
 ```
