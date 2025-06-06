@@ -8,6 +8,12 @@ Additionally, the system consumes the [game-list-api](https://github.com/Antonio
 
 ---
 
+## 🏗️ Architectural Diagram
+
+![Architectural Diagram](https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/04-load-balancer.png)
+
+---
+
 ## 📘 What is an API Gateway?
 
 An API Gateway is a server that acts as an entry point for multiple backend services. It:
