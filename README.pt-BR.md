@@ -12,6 +12,12 @@ Este branch apresenta uma arquitetura básica e modularizada para configurar e e
 
 ---
 
+## 🏗️ Diagrama Arquitetural
+
+![Diagrama Arquitetural](https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/01-server-basics.png)
+
+---
+
 ## 📦 Estrutura do Projeto
 
 ```

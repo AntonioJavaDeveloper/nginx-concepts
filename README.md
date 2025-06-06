@@ -12,6 +12,12 @@ This branch presents a basic and modular architecture to configure and run virtu
 
 ---
 
+## 🏗️ Architectural Diagram
+
+![Architectural Diagram](https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/01-server-basics.png)
+
+---
+
 ## 📦 Project Structure
 
 ```
