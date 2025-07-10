@@ -1,30 +1,46 @@
-# Java Load Balancing and API Gateway Architecture with NGINX and Laravel
+# Advanced Load Balancers with Java, Laravel and NGINX
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-This project demonstrates a realistic setup with multiple services, including Java APIs, PHP applications (Laravel), and a reverse NGINX gateway with **load balancing across multiple Java backend instances**.
+This project extends the previous scenario from the `04-load-balancer` branch, exploring different **load balancing strategies using NGINX**. The environment simulates multiple Java APIs, a Laravel application in PHP, and uses NGINX as a reverse proxy supporting the following types of load balancers:
 
-Additionally, the system consumes the [game-list-api](https://github.com/AntonioJavaDeveloper/game-list-api) project as a backend, and also integrates a Laravel application served internally—showcasing the gateway's flexibility with multiple technologies.
+* **Round Robin**
+* **Weighted Round Robin**
+* **Least Connections**
 
----
-
-## 🏗️ Architectural Diagram
-
-![Architectural Diagram](https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/04-load-balancer.png)
+Additionally, requests are routed through different paths (`/round-robin`, `/weighted`, `/least-conn`) which trigger the respective algorithms configured in NGINX.
 
 ---
 
-## 📘 What is an API Gateway?
+## 🎯 Purpose
 
-An API Gateway is a server that acts as an entry point for multiple backend services. It:
+To demonstrate in a practical and visual way how each load balancing algorithm behaves when distributing requests across three Java services, each returning JSON responses that include the name of the responding server.
 
-* Redirects requests to the correct services
-* Can rewrite URLs
-* Performs load balancing
-* Handles custom errors
-* Serves static or dynamic content
+---
 
-In this project, NGINX is used both as a gateway and as a load balancer for the Java APIs (`games1`, `games2`, `games3`).
+## 📘 What is a Load Balancer?
+
+A load balancer is a middleware component that distributes requests among multiple backend instances, helping to:
+
+* Improve performance;
+* Ensure high availability;
+* Reduce bottlenecks;
+* Enable horizontal scalability;
+* Provide automatic failover.
+
+In this project, we use **NGINX as a reverse proxy**, testing different algorithms to understand their behavior and characteristics in real-world scenarios.
+
+---
+
+## 🧭 Load Balancing Strategies Used
+
+| Strategy             | URL Path                | Characteristics                                                  |
+| -------------------- | ----------------------- | ---------------------------------------------------------------- |
+| Round Robin          | `/round-robin/games/1`  | Requests are distributed cyclically across servers               |
+| Weighted Round Robin | `/weighted/games/1`     | Servers receive requests according to a configured "weight"      |
+| Least Connections    | `/least-conn/games/1`   | New requests are sent to the server with the fewest active connections |
+
+The homepage provides a visual dashboard with interactive buttons to test and observe the behavior of each strategy.
 
 ---
 
@@ -32,24 +48,23 @@ In this project, NGINX is used both as a gateway and as a load balancer for the 
 
 ```txt
 .
-.
 ├── docker-compose.yml                 # Container orchestration (NGINX, Java, Laravel)
 ├── java/                              # Spring Boot backend (game-list-api)
-│   ├── games1/                        # Java service for game API 1
-│   ├── games2/                        # Java service for game API 2
-│   └── games3/                        # Java service for game API 3
-├── php/                               # PHP project directory
-│   ├── laravel1/                      # PHP backend project (Laravel)
-├── settings/                          # NGINX configuration
+│   ├── games1/                        # Java API service 1
+│   ├── games2/                        # Java API service 2
+│   └── games3/                        # Java API service 3
+├── php/                               # Main directory for PHP projects
+│   └── laravel1/                      # Laravel backend project
+├── settings/                          # NGINX configurations
 │   ├── nginx.conf                     # Main config
 │   └── servers/                       # Individual virtual hosts
-│       ├── proxy-reverse.conf         # Smart routing via gateway
+│       ├── proxy-reverse.conf         # Smart routing at the gateway
 │       ├── server1-html.conf          # Static HTML
 │       ├── server2-css.conf           # Static CSS
-│       └── nginx-laravel.conf         # Internal Laravel communication
-│       └── nginx-java-balancer.conf   # Load balancing for Java services (games1, games2, games3)
+│       ├── nginx-laravel.conf         # Internal communication with Laravel
+│       └── nginx-java-balancer.conf   # Advanced balancers: round robin, weighted, least_conn
 └── web/
-    ├── html/                          # Static HTML content
+    ├── html/                          # Static HTML
     ├── server1/                       # Served by server1-html
     ├── server2/                       # Served by server2-css
     └── error/                         # Custom error pages
@@ -59,129 +74,69 @@ In this project, NGINX is used both as a gateway and as a load balancer for the 
 
 ---
 
-## 📦 New: Load Balancing with NGINX
+## 🧪 Test Panel
 
-Now, the `/api/**` endpoint doesn't point directly to the `games1` container. Instead, a new service called `nginx-java-balancer` was created to perform **load balancing among the three Java services**:
+The homepage `http://localhost/` displays an interactive interface with:
 
-* `games1` (internal port 9001)
-* `games2` (internal port 9001)
-* `games3` (internal port 9001)
+* 📌 **Tests for Java and Laravel endpoints**
+* ⚙️ **Visual comparison between balancing strategies**
+* 🚨 **Simulated 404 and 502 error scenarios**
 
-These services are balanced using the `upstream` block in `nginx-java-balancer.conf`.
+Each Java endpoint returns a JSON that includes the `server` key showing which container handled the request — allowing for visual validation of the balancing.
+
+---
+
+## 💡 How Each Configuration Works
+
+The configuration for each algorithm is located in the `nginx-java-balancer.conf` file. They follow the structure below:
 
 ```nginx
-upstream games_api {
+# Round Robin (default)
+upstream games_api_round_robin {
+    server games1:9001;
+    server games2:9001;
+    server games3:9001;
+}
+
+# Weighted Round Robin
+upstream games_api_weighted {
+    server games1:9001 weight=3;
+    server games2:9001;
+    server games3:9001;
+}
+
+# Least Connections
+upstream games_api_least_conn {
+    least_conn;
     server games1:9001;
     server games2:9001;
     server games3:9001;
 }
 ```
 
-All `/api/**` requests reach the main proxy and are then forwarded to `nginx-java-balancer`, which distributes them evenly across the three Java containers.
+Each group is mapped to a specific route using `rewrite` and `proxy_pass`, as detailed in the previous branch's README.
 
 ---
 
-## 🛠️ Java Service Configuration
-
-Each service (`games1`, `games2`, `games3`) is configured with:
-
-* `server.port=9001`
-* `server.name=games1`, `games2`, or `games3` (to identify the response source)
-* `spring.profiles.active`, `cors.origins`, and other common properties
-
-Example API response:
-
-```json
-{
-  "server": "games2",
-  "data": {
-    "id": 1,
-    "title": "Mass Effect Trilogy"
-  }
-}
-```
-
-This allows you to easily verify whether the load balancer is working—each request might return a different service (`games1`, `games2`, or `games3`).
-
----
-
-## 📂 Routing Examples
-
-### Updated Configuration (`proxy-reverse.conf`):
-
-| URL Path                           | Destination (Container) | Port | Notes                                                                 |
-| ---------------------------------- | ----------------------- | ---- | --------------------------------------------------------------------- |
-| `/api/**`                          | `nginx-java-balancer`   | 8080 | Load balancing between `games1`, `games2`, `games3`, with URL rewrite |
-| `/laravel`                         | `nginx-laravel`         | 8083 | Laravel app served by intermediary NGINX, with path rewrite           |
-| `/`, `*.html`                      | `server1`               | 8081 | Static HTML content                                                   |
-| `*.css`                            | `server2`               | 8082 | Static CSS content                                                    |
-| `/error40x.html`, `/error50x.html` | `nginx` (local)         | -    | Error files served directly from NGINX                                |
-
-> 🔄 The use of `rewrite ^/api(/.*)$ $1 break;` in the `/api` block is **essential** to remove the `/api` prefix before forwarding the request to the Java backend.
-
----
-
-## 🌐 Docker Networks: Organized and Secure Communication
-
-The architecture has been improved by separating services into distinct networks as defined in the `docker-compose.yml`. Each group of services communicates only with the services it truly needs, thanks to explicit Docker network definitions.
-
-This network isolation greatly improves:
-
-* **🔒 Security**: services that don't need to talk are completely isolated, reducing the attack surface
-* **🧹 Organization**: clearer architecture and dependency tracing
-* **🚀 Performance and scalability**: avoids unnecessary traffic and improves system efficiency
-* **🛠️ Debugging**: easier to identify communication issues
-* **📦 DevOps Best Practice**: widely recommended approach in production environments with multiple containers
-
-### 🔗 Networks and Services
-
-| Network          | Associated Services                                                             |
-| ---------------- | ------------------------------------------------------------------------------- |
-| `reverse-proxy`  | `nginx`, `nginx-java-balancer`, `nginx-laravel`, `server1-html`, `server2-css`  |
-| `static-content` | `server1-html`, `server2-css`                                                   |
-| `java`           | `nginx-java-balancer`, `games1-app`, `games2-app`, `games3-app`                 |
-| `laravel`        | `nginx-laravel`, `laravel1`                                                     |
-| `default`        | Not used — all services are explicitly connected to their own specific networks |
-
-> ℹ️ **Fun fact:** in the reverse proxy, `server1-html` is responsible for serving `*.html` files, while `server2-css` handles `*.css`, neatly organizing static content.
-
----
-
-## 📌 Key Endpoints
-
-| Method | Path                        | Description                    |
-| ------ | --------------------------- | ------------------------------ |
-| GET    | `/api/games`                | Lists all games                |
-| GET    | `/api/games/{id}`           | Returns game details           |
-| GET    | `/api/lists`                | Lists all game lists           |
-| GET    | `/api/lists/{listId}/games` | Lists games in a specific list |
-| -      | `http://localhost/laravel`  | Laravel homepage               |
-
----
-
-## 🧪 Testing Load Balancing
-
-Make multiple requests to the `/api/games` endpoint. You should observe that the `"server"` field in the response alternates between `games1`, `games2`, and `games3`, confirming that the load balancer is working.
-
----
-
-## 🚀 Running the Containers
+## 🚀 Launching the Environment
 
 ```bash
 docker compose up --build
 ```
 
-Make sure all ports and volumes are properly configured.
+Access [http://localhost](http://localhost) and explore the interactive test panel.
 
 ---
 
-**This environment is designed as a testing and experimentation platform for reverse proxy practices, static content separation, and dynamic API management.**
+## 🧭 Tip
+
+On the panel, observe the server names (`games1`, `games2`, `games3`) in the JSON response body — this helps visualize how each strategy is distributing the traffic.
+
+For the **least_conn** algorithm, the system automatically fires 15 background requests. On `games2` and `games3`, these requests simulate long processing times (up to 25 seconds), while `games1` responds almost instantly (around 1 ms). This uneven load allows you to observe how NGINX redirects new requests to the least busy server.
 
 ---
 
-## 📩 Contact
-
-For opportunities or questions:
+## 📫 Contact
 
 * 🌐 [https://javadeveloper.com.br/](https://javadeveloper.com.br/)
 * 💼 [LinkedIn](https://www.linkedin.com/in/antonio-javadeveloper/)

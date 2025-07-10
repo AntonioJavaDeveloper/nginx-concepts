@@ -3,10 +3,14 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Página Inicial</title>
+    <title>Dashboard de Endpoints - Servidor com Load Balancer</title>
     <link href="/style.css" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
 </head>
+<style>
+
+</style>
+
 <body>
 <main class="container">
     <div class="headline">Bem-vindo ao servidor!</div>
@@ -28,27 +32,27 @@
                 <tbody>
                 <tr>
                     <td>GET</td>
-                    <td><a class="endpoint-link" href="/api/games">/api/games</a></td>
+                    <td><a class="endpoint-link" href="#" onclick="openModal('api_games', 'http://localhost/api/games', false)">/api/games</a></td>
                     <td>Lista todos os jogos</td>
                 </tr>
                 <tr>
                     <td>GET</td>
-                    <td><a class="endpoint-link" href="/api/games/1">/api/games/{id}</a></td>
+                    <td><a class="endpoint-link" href="#" onclick="openModal('api_games_1', 'http://localhost/api/games/1', false)">/api/games/{id}</a></td>
                     <td>Retorna detalhes de um jogo</td>
                 </tr>
                 <tr>
                     <td>GET</td>
-                    <td><a class="endpoint-link" href="/api/lists">/api/lists</a></td>
+                    <td><a class="endpoint-link" href="#" onclick="openModal('api_lists', 'http://localhost/api/lists', false)">/api/lists</a></td>
                     <td>Lista todas as listas de jogos</td>
                 </tr>
                 <tr>
                     <td>GET</td>
-                    <td><a class="endpoint-link" href="/api/lists/1/games">/api/lists/{listId}/games</a></td>
+                    <td><a class="endpoint-link" href="#" onclick="openModal('api_lists_1_games', 'http://localhost/api/lists/1/games', false)">/api/lists/{listId}/games</a></td>
                     <td>Lista os jogos de uma lista</td>
                 </tr>
                 <tr>
                     <td>-</td>
-                    <td><a class="endpoint-link" href="http://localhost/laravel">http://localhost/laravel</a></td>
+                    <td><a class="endpoint-link" href="#" onclick="openModal('laravel', 'http://localhost/laravel', false)">http://localhost/laravel</a></td>
                     <td>Retorna a página inicial do Laravel</td>
                 </tr>
                 </tbody>
@@ -65,6 +69,53 @@
                 </tfooter>
             </table>
         </section>
+
+        <section class="endpoints">
+            <h2>📌 Load Balancer</h2>
+            <table>
+                <thead>
+                <tr>
+                    <th>Método</th>
+                    <th>Caminho</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>Round Robin</td>
+                    <td><a class="endpoint-link" href="#" onclick="openModal('round_robin', 'http://localhost/api/round-robin/games/1', true)">http://localhost/api/round-robin/games/1</a></td>
+                </tr>
+                <tr>
+                    <td>Weighted Round Robin</td>
+                    <td><a class="endpoint-link" href="#" onclick="openModal('weighted_round_robin', 'http://localhost/api/weighted/games/1', true)">http://localhost/api/weighted/games/1</a></td>
+                </tr>
+                <tr>
+                    <td>Least Connections</td>
+                    <td><a class="endpoint-link" href="#" onclick="openModal('least_conn', 'http://localhost/api/least-conn/games/1', true)">http://localhost/api/least-conn/games/1</a></td>
+                </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Modal -->
+        <div id="lb-modal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <div class="modal-left">
+                    <h2 class="lb-title"></h2>
+                    <img class="lb-img" src="" alt="Figura Balanceador" />
+                    <p class="lb-desc"></p>
+                    <p class="lb-subtext"></p>
+                    <p class="subtext-pos"></p>
+                </div>
+                <div class="modal-right">
+                    <div class="modal-counter">
+                        <p id="lb-counter">00:00</p>
+                    </div>
+                    <iframe id="lb-iframe" width="100%" height="100%" frameborder="0"></iframe>
+                </div>
+            </div>
+        </div>
+
 
         <section class="endpoints">
             <h2>📌 Erros principais</h2>
@@ -134,10 +185,160 @@
     const btn = document.getElementById('toggle-btn');
     const section = document.getElementById('endpoints');
 
+    let counterInterval;
+    let seconds = 0;
+
+    let refreshInterval = null;
+
+    let scrollPosition = 0;
+
+    function startCounter() {
+        seconds = 0;
+
+        const counter = document.getElementById("lb-counter");
+        counterInterval = setInterval(() => {
+            seconds++;
+            const mins = String(Math.floor(seconds / 60)).padStart(2, "0");
+            const secs = String(seconds % 60).padStart(2, "0");
+            counter.textContent = `${mins}:${secs}`;
+        }, 1000);
+
+    }
+    function stopCounter() {
+        clearInterval(counterInterval);
+        document.getElementById("lb-counter").textContent = "00:00";
+
+    }
+
     btn.addEventListener('click', () => {
         section.classList.toggle('visible');
         btn.textContent = section.classList.contains('visible') ? 'Ver menos' : 'Ver mais';
     });
+
+    const explanations = {
+        "api_games": {
+            title_header: "Todos os Games",
+            image: "https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/04-load-balancer-round-robin.png",
+            desc: "Todos os games",
+            lb_subtext: "O iframe ao lado retorna todos os games originados dos seguintes servidores: http://games1:9001, http://games2:9001 ou http://games3:9001",
+            subtext_pos: "Esses servidores são acessíveis apenas dentro do contexto Docker."
+        },
+        "api_games_1": {
+            title_header: "Retorna um game",
+            image: "https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/04-load-balancer-round-robin.png",
+            desc: "Retorna detalhes de um game",
+            lb_subtext: "O iframe ao lado retorna os detalhes de um game originado dos seguintes servidores: http://games1:9001, http://games2:9001 ou http://games3:9001",
+            subtext_pos: "Esses servidores são acessíveis apenas dentro do contexto Docker."
+        },
+        "api_lists": {
+            title_header: "Retorna as listas de games",
+            image: "https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/04-load-balancer-round-robin.png",
+            desc: "Retorna os detalhes das lista de games",
+            lb_subtext: "O iframe ao lado retorna os detalhes das listas de games originadas dos seguintes servidores: http://games1:9001, http://games2:9001 ou http://games3:9001",
+            subtext_pos: "Esses servidores são acessíveis apenas dentro do contexto Docker."
+        },
+        "api_lists_1_games": {
+            title_header: "Retorna os games de uma lista",
+            image: "https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/04-load-balancer-round-robin.png",
+            desc: "Retorna os games de uma lista específica",
+            lb_subtext: "O iframe ao lado retorna os games de uma lista específica originada dos seguintes servidores: http://games1:9001, http://games2:9001 ou http://games3:9001",
+            subtext_pos: "Esses servidores são acessíveis apenas dentro do contexto Docker."
+        },
+        "laravel": {
+            title_header: "Página padrão do Laravel",
+            image: "https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/04-load-balancer-laravel.png",
+            desc: "Retorna a página padrão do Laravel",
+            lb_subtext: "O iframe ao lado é devolve a página padrão do laravel originada do seguinte servidor: http://laravel1:9000",
+            subtext_pos: "O servidor http://nginx-laravel:8083 devolve ao servidor de proxy a requisição do servidor http://laravel1:9000. Esses servidores são acessíveis apenas dentro do contexto Docker."
+        },
+        "round_robin": {
+            title_header: "Round Robin",
+            image: "https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/04-load-balancer-round-robin.png",
+            desc: "Round Robin é uma estratégia de balanceamento de carga que distribui as requisições entre os servidores de forma sequencial, um após o outro.",
+            lb_subtext: "O iframe ao lado é recarregado a cada 2s. Servidores: http://games1:9001, http://games2:9001 e http://games3:9001",
+            subtext_pos: ""
+
+        },
+        "weighted_round_robin": {
+            title_header: "Weighted Round Robin",
+            image: "https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/04-load-balancer-weighted-round-robin.png",
+            desc: "Envia as requisições aos servidores com pesos definidos, assim os servidores mais potentes recebam mais requisições.",
+            lb_subtext: "O iframe ao lado é recarregado a cada 2s. Servidores: http://games1:9001, http://games2:9001 e http://games3:9001",
+            subtext_pos: "http://games1:9001 recebe o triplo das requisições."
+        },
+        "least_conn": {
+            title_header: "Least Connections",
+            image: "https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/04-load-balancer-least-conn.png",
+            desc: "Distribui novas requisições para o servidor com menos conexões ativas.",
+            lb_subtext: "O iframe faz requisições a cada 2s. Em segundo plano, várias requisições demoradas são disparadas para simular carga desigual entre os servidores.",
+            subtext_pos: "Observe que os servidores menos sobrecarregados passam a receber mais requisições. Isso é o comportamento do least_conn."
+        }
+    };
+
+    function aplicarLogicaEspecial(chave) {
+        if (chave === "least_conn") {
+            const requests = [];
+            for (let i = 0; i < 15; i++) {
+                requests.push(
+                    fetch('http://localhost/api/least-conn/delayed')
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Erro na resposta do servidor: ' + response.status);
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            console.log(`Servidor: ${data.server}, Delay: ${data.data}`);
+                        })
+                        .catch(error => console.error('Erro na requisição delayed:', error))
+                );
+            }
+
+            Promise.all(requests).then(() => console.log("Todas as requisições concluídas"));
+        }
+    }
+
+    function openModal(title, url, is_refresh) {
+        scrollPosition = window.scrollY || window.pageYOffset;
+
+        document.getElementsByClassName('lb-title').item(0).textContent = explanations[title]["title_header"] || '';
+        document.getElementsByClassName('lb-img').item(0).setAttribute("src", explanations[title]["image"] || '');
+        document.getElementsByClassName('lb-desc').item(0).textContent = explanations[title]["desc"] || '';
+        document.getElementsByClassName('lb-subtext').item(0).textContent = explanations[title]["lb_subtext"] || '';
+        document.getElementsByClassName('subtext-pos').item(0).textContent = explanations[title]["subtext_pos"] || '';
+        document.getElementById('lb-iframe').src = url;
+        document.getElementById('lb-modal').style.display = 'block';
+
+        aplicarLogicaEspecial(title);
+
+        if (is_refresh) {
+            if (refreshInterval) clearInterval(refreshInterval);
+            refreshInterval = setInterval(() => {
+                const iframe = document.getElementById('lb-iframe');
+                iframe.src = url;
+            }, 2000);
+
+            startCounter();
+        } else {
+            document.getElementsByClassName('modal-counter').item(0).style.display = 'none';
+        }
+
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${scrollPosition}px`;
+        document.body.style.width = '100%';
+    }
+
+    function closeModal() {
+        document.getElementById('lb-modal').style.display = 'none';
+        clearInterval(refreshInterval);
+        document.getElementById('lb-iframe').src = '';
+        stopCounter();
+
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        window.scrollTo(0, scrollPosition);
+    }
 </script>
 </body>
 </html>

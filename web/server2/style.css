@@ -41,6 +41,18 @@ main.container {
     color: #ccc;
 }
 
+.modal-left .lb-subtext {
+    margin-top: 10px;
+    font-size: 0.8rem;
+    color: #ccc;
+}
+
+.modal-left .subtext-pos {
+    margin-top: 10px;
+    font-size: 0.8rem;
+    color: #00bcd4;
+}
+
 a.button {
     display: inline-block;
     margin-top: 20px;
@@ -117,6 +129,84 @@ a.endpoint-link {
 
 a.endpoint-link:hover {
     color: #00acc1;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.5);;
+}
+
+.modal-content {
+    background-color: rgba(34, 54, 61);
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 10px;
+    display: flex;
+    width: 90%;
+    height: 80%;
+    max-width: 1000px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    position: relative;
+}
+
+.close {
+    position: absolute;
+    top: -15px;
+    right: 0px;
+    font-size: 2.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: #FF0000;
+}
+
+.modal-left {
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.modal-left {
+    width: 40%;
+    border-right: 1px solid #ccc;
+}
+
+.modal-left h2 {
+    margin-top: 0;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: #00bcd4;
+}
+
+.modal-left img {
+    max-width: 100%;
+    margin-bottom: 10px;
+}
+
+.modal-left p {
+    color: #00bcd4;
+}
+
+.modal-right {
+    padding: 25px 30px 20px 20px;
+    box-sizing: border-box;
+    width: 60%;
+    background-color: #bbb;
+}
+
+.modal-counter{
+    margin: 5px 0 5px;
+    background-color: #fff;
+    color: #00bcd4;
+}
+
+iframe {
+    border: none;
 }
 
 /* Footer */
