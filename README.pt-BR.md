@@ -47,7 +47,7 @@ A seguir estão os caminhos roteados pelo NGINX (API Gateway) conforme definidos
 
 ---
 
-## 📌 Endpoints principais(Java) + Laravel
+## 📌 Endpoints principais das APIs Java e da aplicação Laravel
 
 Abaixo estão listados os principais endpoints acessíveis através do gateway:
 

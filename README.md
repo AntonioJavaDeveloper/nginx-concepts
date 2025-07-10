@@ -47,7 +47,7 @@ Below are the paths routed by NGINX (API Gateway) as defined in `proxy-reverse.c
 
 ---
 
-## 📌 Main Endpoints (Java) + Laravel
+## 📌 Main endpoints of the Java APIs and the Laravel application
 
 Below are the main endpoints accessible through the gateway:
 
