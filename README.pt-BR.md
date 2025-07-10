@@ -1,4 +1,4 @@
-# Balancemaneto de Caraga em Java e API Gateway com NGINX + Laravel
+# Balancemaneto de Carga em Java e API Gateway com NGINX + Laravel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
@@ -46,7 +46,7 @@ Neste projeto, o NGINX é usado como gateway e também como balanceador de carga
 │       ├── proxy-reverse.conf         # Roteamento inteligente no gateway
 │       ├── server1-html.conf          # HTML estático
 │       ├── server2-css.conf           # CSS estático
-│       └── nginx-laravel.conf         # Comunicação interna com Laravel
+│       ├── nginx-laravel.conf         # Comunicação interna com Laravel
 │       └── nginx-java-balancer.conf   # Balanceamento de carga entre os serviços Java (games1, games2, games3)
 └── web/
     ├── html/                          # HTML estático
