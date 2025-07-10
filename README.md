@@ -12,6 +12,12 @@ Additionally, requests are routed through different paths (`/round-robin`, `/wei
 
 ---
 
+## 🏗️ Architectural Diagram
+
+![Architectural Diagram](https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/04-load-balancer.png)
+
+---
+
 ## 🎯 Purpose
 
 To demonstrate in a practical and visual way how each load balancing algorithm behaves when distributing requests across three Java services, each returning JSON responses that include the name of the responding server.

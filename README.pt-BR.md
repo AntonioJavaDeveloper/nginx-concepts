@@ -12,6 +12,12 @@ Além disso, as requisições são roteadas por caminhos distintos (`/round-robi
 
 ---
 
+## 🏗️ Diagrama Arquitetural
+
+![Diagrama Arquitetural](https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/04-load-balancer.png)
+
+---
+
 ## 🎯 Objetivo
 
 Demonstrar de forma prática e visual como cada algoritmo de balanceamento se comporta ao distribuir requisições entre três serviços Java com respostas JSON que incluem o nome do servidor que respondeu.
