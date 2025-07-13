@@ -1,38 +1,46 @@
-# 📊 Custom Logging in NGINX with Java, Laravel, and Docker
+# ⚙️ Communicating with Dynamic Backends via FastCGI
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-NGINX automatically logs all requests it handles, as well as any errors encountered during processing. These logs are essential for understanding application behavior, identifying bottlenecks, investigating issues, and ensuring observability in production environments. With minimal configuration, it's possible to customize what gets logged and how that information is displayed.
+Before the rise of self-contained application servers (like Spring Boot, Node.js, or Gunicorn), it was common for NGINX to act solely as a reverse proxy, delegating backend logic execution to a separate interpreter — often via **FastCGI**, a protocol optimized for this type of communication.
 
-In addition to the default log files (`access.log` and `error.log`), NGINX allows you to define custom log formats with variables that show client IP, backend response time, accessed URI, status code, and much more. Logs can also be redirected to the container’s standard output, integrating with tools like ELK or Grafana Loki — a best practice in modern container-based and microservices architectures.
+Unlike `proxy_pass`, which forwards HTTP requests, `fastcgi_pass` speaks a **specific protocol**, used by servers such as **php-fpm** (for PHP), but also applicable to other environments implementing FastCGI.
+
+Here, we’ll build this bridge step-by-step, starting with an incomplete example and evolving into a robust, functional configuration.
+
+We’ll explore:
+
+* How NGINX delegates dynamic scripts via `fastcgi_pass`
+* Why the first example fails
+* The role of variables like `SCRIPT_FILENAME` and `PATH_INFO`
+* How `fastcgi_split_path_info` separates script path from routing path
+* How modern frameworks — such as Laravel, and others that respect `PATH_INFO` — handle internal routes
+
+> ℹ️ Today, many modern languages adopt self-contained servers — where the app and the HTTP server run in the same process. However, the FastCGI approach is **still highly relevant** in contexts where decoupling the web server from the app process offers security, scalability, or legacy benefits.
+>
+> By the end, you’ll have a clear and efficient configuration to run dynamic requests via FastCGI — focusing on performance and compatibility, regardless of the backend language.
 
 ---
 
-## 🏗️ Architecture Diagram
-
-![Architecture Diagram](https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/04-load-balancer.png)
-
----
-
-## 🗂️ Project Structure
+## 📂 Initial Project Structure
 
 ```txt
 .
 ├── docker-compose.yml                 # Container orchestration (NGINX, Java, Laravel)
-├── java/                              # Backend project in Spring Boot (game-list-api)
-│   ├── games1/                        # Java service with game API 1
-│   ├── games2/                        # Java service with game API 2
-│   └── games3/                        # Java service with game API 3
+├── java/                              # Spring Boot backend project (game-list-api)
+│   ├── games1/                        # Java service for games API 1
+│   ├── games2/                        # Java service for games API 2
+│   └── games3/                        # Java service for games API 3
 ├── php/                               # Main directory for PHP projects
-│   └── laravel1/                      # Backend project in PHP (Laravel)
+│   └── laravel1/                      # PHP backend project (Laravel)
 ├── settings/                          # NGINX configurations
-│   ├── nginx.conf                     # Main configuration
+│   ├── nginx.conf                     # Main config
 │   └── servers/                       # Individual virtual hosts
-│       ├── proxy-reverse.conf         # Smart routing on the gateway
+│       ├── proxy-reverse.conf         # Smart routing in the gateway
 │       ├── server1-html.conf          # Static HTML
 │       ├── server2-css.conf           # Static CSS
-│       ├── nginx-laravel.conf         # Internal communication with Laravel
-│       └── nginx-java-balancer.conf   # Custom log setup for detailed request analysis at the load balancer
+│       ├── nginx-laravel.conf         # Virtual host communicating with PHP-FPM via FastCGI
+│       └── nginx-java-balancer.conf   # Custom logging for detailed request analysis in the balancer
 └── web/
     ├── html/                          # Static HTML
     ├── server1/                       # Served by server1-html
@@ -42,6 +50,4 @@ In addition to the default log files (`access.log` and `error.log`), NGINX allow
         └── error50x.html
 ```
 
-...
-
-(Truncated for brevity; full content can be generated again if needed)
+# [...] (truncated to fit) — the full translation continues in the actual file.

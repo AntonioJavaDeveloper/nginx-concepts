@@ -1,20 +1,28 @@
-# 📊 Logs Personalizados no NGINX com Java, Laravel e Docker
+# ⚙️ Comunicação com Backends Dinâmicos via FastCGI
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-O NGINX registra automaticamente todas as requisições que passam por ele, bem como erros encontrados durante o processamento. Esses registros são fundamentais para entender o comportamento da aplicação, detectar gargalos, investigar falhas e garantir observabilidade em ambientes de produção. Com poucas configurações, é possível customizar o que será logado e como essas informações serão exibidas.
+Antes da popularização dos servidores autocontidos (como Spring Boot, Node.js ou Gunicorn), era comum que o NGINX servisse apenas como proxy reverso, delegando a execução da lógica backend para um interpretador separado — frequentemente via **FastCGI**, um protocolo otimizado para esse tipo de comunicação.
 
-Além dos arquivos padrão (`access.log` e `error.log`), o NGINX permite definir formatos personalizados de log, com variáveis que mostram IP do cliente, tempo de resposta do backend, URI acessada, código de status e muito mais. Também é possível redirecionar os logs para a saída padrão do container, integrando com ferramentas como ELK ou Grafana Loki — prática essencial em ambientes modernos baseados em containers e microserviços.
+Diferente do `proxy_pass`, que encaminha requisições HTTP, o `fastcgi_pass` fala um **protocolo específico**, usado por servidores como o **php-fpm** (no caso do PHP), mas também aplicável a outros ambientes que implementam FastCGI.
+
+Aqui vamos construir essa ponte passo a passo, começando com um exemplo incompleto e evoluindo até uma configuração robusta e funcional.
+
+Vamos analisar:
+
+* Como o NGINX delega scripts dinâmicos via `fastcgi_pass`
+* Por que o primeiro exemplo falha
+* O papel de variáveis como `SCRIPT_FILENAME` e `PATH_INFO`
+* Como o `fastcgi_split_path_info` separa a rota do script
+* E como frameworks modernos — como Laravel, mas também outros que respeitam `PATH_INFO` — resolvem rotas internas
+
+> ℹ️ Hoje, muitas linguagens modernas optam por servidores autocontidos — onde a aplicação e o servidor HTTP vivem no mesmo processo. No entanto, a abordagem com FastCGI **ainda é altamente relevante** em contextos onde o desacoplamento entre servidor e aplicação traz vantagens de segurança, escalabilidade ou legado.
+>
+> Ao final, você terá uma configuração clara e eficiente para executar requisições dinâmicas via FastCGI — com foco na performance e compatibilidade, independente da linguagem usada no backend.
 
 ---
 
-## 🏗️ Diagrama Arquitetural
-
-![Diagrama Arquitetural](https://raw.githubusercontent.com/AntonioJavaDeveloper/assets/refs/heads/main/nginx-concepts/images/04-load-balancer.png)
-
----
-
-## 🗂️ Estrutura do Projeto
+## 📂 Estrutura inicial do projeto
 
 ```txt
 .
@@ -31,7 +39,7 @@ Além dos arquivos padrão (`access.log` e `error.log`), o NGINX permite definir
 │       ├── proxy-reverse.conf         # Roteamento inteligente no gateway
 │       ├── server1-html.conf          # HTML estático
 │       ├── server2-css.conf           # CSS estático
-│       ├── nginx-laravel.conf         # Comunicação interna com Laravel
+│       ├── nginx-laravel.conf         # Virtual host que se comunica com PHP-FPM via FastCGI
 │       └── nginx-java-balancer.conf   # Configuração de logs personalizados para análise detalhada das requisições no balanceador
 └── web/
     ├── html/                          # HTML estático
@@ -44,250 +52,317 @@ Além dos arquivos padrão (`access.log` e `error.log`), o NGINX permite definir
 
 ---
 
-## 📁 Onde estão os logs do NGINX?
+## 🚀 Evolução até chegar ao FastCGI
 
-Por padrão, os logs de acesso e erro ficam armazenados em dois arquivos dentro do container NGINX:
+Antes da popularização dos servidores de aplicação autocontidos e das arquiteturas modernas, a execução de lógica no backend era feita através de um mecanismo chamado **CGI (Common Gateway Interface)** — uma forma primitiva, mas funcional, de estender a capacidade dos servidores web para além de arquivos estáticos.
 
-| Tipo de log     | Caminho dentro do container    | Descrição                          |
-|-----------------|--------------------------------|-------------------------------------|
-| Access Log      | `/var/log/nginx/access.log`    | Todas as requisições HTTP feitas   |
-| Error Log       | `/var/log/nginx/error.log`     | Erros de proxy, upstream, sintaxe  |
+Na era inicial da web, o papel do servidor era simples: **servir documentos HTML**. Com o tempo, surgiu a necessidade de executar lógica — como contar acessos ou gerar páginas dinâmicas. O CGI atendia essa demanda criando **um novo processo a cada requisição**. Esse processo executava o código (geralmente scripts ou binários em C), processava a entrada, gerava a saída HTML e encerrava. Essa abordagem funcionava, mas impunha sérios custos de performance e escalabilidade.
 
-Esses arquivos são criados automaticamente, conforme a diretiva `access_log` e `error_log` definida no `nginx.conf` principal (ou herdada dos arquivos incluídos via `include`).
+Para resolver esse gargalo, surgiu o **FastCGI**, um protocolo que mantém processos vivos e reutilizáveis. Em vez de iniciar e encerrar um processo por requisição, o servidor web encaminha as requisições para um **gerenciador FastCGI** (como o PHP-FPM), que se comunica com os processos em execução. Isso **reduz o overhead**, melhora a performance e permite o uso eficiente dos recursos.
 
-#### 🔁 **Nota sobre containers**
-
-> 📝 **Importante:** Se você estiver utilizando a imagem oficial do NGINX (`nginx:1.26`), os arquivos `/var/log/nginx/access.log` e `/var/log/nginx/error.log` são, na verdade, **links simbólicos para `/dev/stdout` e `/dev/stderr`**.
-> Ou seja, os logs são enviados diretamente para o console do container, e **não são gravados em disco** como arquivos tradicionais.
->
-> Você pode verificar isso com:
->
-> ```bash
-> docker compose exec nginx-java-balancer ls -l /var/log/nginx
-> ```
+Essa abordagem segue bastante presente em ambientes que utilizam interpretadores externos — sendo o PHP com php-fpm o caso mais emblemático. Ainda assim, a arquitetura FastCGI também pode ser adotada em linguagens como Python ou Ruby, sempre que o servidor web precisar manter o processo de aplicação separado da camada HTTP. Outras linguagens também podem se beneficiar desse modelo, embora seja mais comum que utilizem **servidores autocontidos**, como é o caso do Java com Spring Boot ou do Python com Gunicorn.
 
 ---
 
-## 📘 Logs de Acesso no NGINX
+## 🔄 Resumo comparativo:
 
-O `access_log` é o registro **de todas as requisições HTTP processadas com sucesso ou falha** (independente do status code). Ele permite visualizar quais endpoints foram acessados, por quem, em que momento, com qual resposta e quanto tempo demoraram.
+| Aspecto                      | **CGI**                                                       | **FastCGI**                                                              |
+| ---------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 🧠 Ideia básica              | Servidor cria **um processo novo a cada requisição**          | Servidor **reutiliza processos** existentes (pool de processos)          |
+| ⚙️ Funcionamento             | Processo é criado → executa lógica → responde → é encerrado   | Processo é criado uma vez → recebe múltiplas requisições                 |
+| 🐌 Desempenho                | Ruim, devido à criação e destruição constante de processos    | Muito mais eficiente e escalável                                         |
+| 🛠️ Implementação típica     | Lógica escrita em C ou script, executada como binário externo | Processo gerenciado por um **FastCGI Process Manager** (ex: PHP-FPM)     |
+| ♻️ Reuso de recursos         | Não reutiliza nada                                            | Reaproveita conexões, processos, sockets, etc.                           |
+| 🧼 Gerenciamento de recursos | Feito manualmente pelo desenvolvedor                          | Feito automaticamente pelo gerenciador (libera conexões, arquivos, etc.) |
+| 🌐 Exemplo moderno           | Raro hoje em dia                                              | Usado em quase toda aplicação PHP com NGINX (via PHP-FPM)                |
 
-### ✅ Exemplo de configuração:
+> Mesmo outras linguagens como **Python e Java** *podem* usar FastCGI, mas **é mais comum que tenham seus próprios servidores** (ex: uWSGI, Gunicorn, Tomcat).
 
-```nginx
-access_log /var/log/nginx/access.log custom_logs;
-```
+---
 
-Isso indica que o log será gravado no caminho `/var/log/nginx/access.log`, utilizando o formato `custom_logs` previamente definido.
+## 🧱 Primeiros passos com FastCGI
 
-> 🧾 Nota: em containers baseados na imagem oficial do NGINX, esse caminho aponta para o console do container, e **não para um arquivo real no disco**.
+Vamos configurar o NGINX para delegar a execução de arquivos `.php` ao processo gerenciado por `php-fpm`. Como o `php-fpm` escuta a porta `9000` por padrão, utilizaremos essa porta no destino do `fastcgi_pass`.
 
-### ✍️ Como criar formatos personalizados de log (`log_format`)
+No lugar de `proxy_pass` (usado com HTTP), usaremos `fastcgi_pass`, que fala o protocolo FastCGI com o backend.
 
-Você pode definir um ou mais formatos personalizados de log com a diretiva `log_format`. Isso permite adaptar a saída para diferentes finalidades, como:
+> **Importante:** FastCGI não fala HTTP. A requisição precisa ser "traduzida" para esse protocolo. Por isso o NGINX exige mais informações para fazer essa ponte corretamente.
 
-* Auditoria de segurança
-* Análise de desempenho
-* Integração com ferramentas externas
+---
 
-#### Exemplo de um formato resumido:
-
-```nginx
-log_format minimal '$remote_addr - $request';
-```
-
-#### Exemplo mais completo:
+## 🚫 Primeiro exemplo (incompleto)
 
 ```nginx
-log_format custom_logs '$remote_addr [$time_local] '
-                       '"$request" $status $body_bytes_sent '
-                       '"$http_referer" "$http_user_agent" '
-                       'real_ip=$http_x_forwarded_for '
-                       'x_real_ip=$http_x_real_ip '
-                       'ua="$upstream_addr" '
-                       'rt=$request_time urt=$upstream_response_time';
-```
-
-Depois de definido, você pode usar esse nome (`custom_logs`) na diretiva `access_log`.
-
-### 📌 Onde pode ser definido o `log_format`?
-
-| Escopo de uso | Pode usar `log_format`? | Comentário                                                          |
-| ------------- | ----------------------- | ------------------------------------------------------------------- |
-| **http**      | ✅ Sim                   | Ideal para definições globais. É o lugar recomendado.               |
-| **server**    | ❌ Não                   | Não é permitido definir `log_format` diretamente no bloco `server`. |
-| **location**  | ❌ Não                   | Também **não é permitido** criar `log_format` dentro de `location`. |
-
-> 📌 **Importante:** Apesar de não ser possível criar `log_format` dentro de `server` ou `location`, você **pode usar formatos já definidos** dentro desses blocos, como:
-
-```nginx
-server {
-    access_log /var/log/nginx/myapi.log minimal;
-
-    location /api {
-        access_log /var/log/nginx/api-detalhado.log custom_logs;
-    }
+location ~ \.php$ {
+    fastcgi_pass laravel1:9000;
 }
 ```
 
-### 🔁 Criando múltiplos logs com diferentes formatos
+### ❌ Por que isso **não funciona**:
 
-Você pode definir múltiplos `access_log` com formatos diferentes para fins específicos:
+Apesar de parecer correto, essa configuração falha silenciosamente ou retorna erro 502. O motivo é que **faltam diversas informações que o NGINX precisa passar para o `php-fpm` via protocolo FastCGI**, como:
 
-```nginx
-access_log /var/log/nginx/access.log custom_logs;
-access_log /var/log/nginx/auditoria.log minimal;
-```
-
-Essa abordagem é útil para:
-
-* Criar logs reduzidos para análise rápida
-* Criar logs completos apenas para determinadas rotas
-* Manter logs separados por aplicação (ex: Laravel x Java)
+* Qual é o caminho do script que deve ser executado (`SCRIPT_FILENAME`)
+* Qual é a query string da requisição (`QUERY_STRING`)
+* Qual é o tipo de conteúdo (`CONTENT_TYPE`)
+* Qual é o método HTTP (`REQUEST_METHOD`)
+* E várias outras variáveis de ambiente que o FastCGI precisa
 
 ---
 
-## 🐞 Logs de Erro no NGINX
-
-O NGINX permite registrar mensagens de erro em diferentes níveis de severidade, úteis para diagnosticar falhas na aplicação, no proxy ou no servidor.
-
-### 📌 Onde ficam os logs de erro?
-
-Os logs de erro do servidor, que estão configurados no arquivo `settings/servers/server1-html.conf`, vão para:
+### 💡 Definindo o caminho correto
 
 ```nginx
-error_log /var/log/nginx/error.log warn;
+location ~ \.php$ {
+    fastcgi_pass laravel1:9000;
+    include fastcgi_params;
+
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+}
 ```
 
-Esse caminho (`/var/log/nginx/error.log`) é **relativo ao container**, e armazena todos os erros gerados ao servir páginas estáticas ou ao lidar com falhas de proxy.
+> Agora sim, o `php-fpm` saberá exatamente qual arquivo executar, porque a diretiva `SCRIPT_FILENAME` irá **montar dinamicamente o caminho completo do arquivo PHP** requisitado, combinando duas variáveis:
 
+* **`$document_root`** → contém o valor definido pela diretiva `root` do `server`, que neste caso é:
 
-> 🧾 Nota: em containers baseados na imagem oficial do NGINX, esse (`/var/log/nginx/error.log`) caminho aponta para o console do container, e **não para um arquivo real no disco**.
-
-
-### ⚠️ Níveis de log disponíveis no NGINX
-
-| Nível    | Descrição                                                                             | Inclui níveis inferiores? |
-| -------- | ------------------------------------------------------------------------------------- | ------------------------- |
-| `debug`  | **Mais detalhado possível**. Inclui headers, fases do ciclo de vida, roteamento, etc. | Sim                       |
-| `info`   | Informações úteis para diagnóstico e acompanhamento do fluxo de requisições           | Sim                       |
-| `notice` | Avisos que não afetam diretamente a operação, mas devem ser observados                | Sim                       |
-| `warn`   | Erros potenciais ou temporários, como atrasos ou diretórios ausentes                  | Sim                       |
-| `error`  | Erros importantes, como falhas de proxy, 502, 403, 500 etc.                           | Sim                       |
-| `crit`   | Situações críticas que impedem o funcionamento do serviço                             | Sim                       |
-| `alert`  | Requer ação imediata. Pode ser falha de disco, memória, etc.                          | Sim                       |
-| `emerg`  | O servidor está inoperante. Usado em eventos catastróficos.                           | Sim                       |
-
-💡 Se você configurar:
-
-```nginx
-error_log /var/log/nginx/error.log info;
-```
-
-Você verá todas as mensagens com nível `info` **e todos os níveis abaixo dele** (`notice`, `warn`, `error`, etc.).
-
-### 🔍 Acompanhando os logs em tempo real
-
-Como os logs do NGINX estão sendo enviados para `stdout` e `stderr`, você pode acompanhá-los facilmente com o comando:
-
-```bash
-docker compose logs -f <serviço>
-````
-
-#### ✅ Exemplos:
-
-* **Para acompanhar os logs do balanceador (`nginx-java-balancer`)**:
-
-  ```bash
-  docker compose logs -f nginx-java-balancer
+  ```nginx
+  server {
+    listen 8083;
+    index index.php;
+    root /var/www/public;
+    ...
   ```
 
-* **Para acompanhar os logs do servidor principal (`nginx`, na porta 80)**:
+  Ou seja, `$document_root` equivale a:
 
-  ```bash
-  docker compose logs -f nginx
+  ```
+  /var/www/public
   ```
 
-Você verá tanto os acessos (`access_log`) quanto os erros (`error_log`) no console em tempo real.
+* **`$fastcgi_script_name`** → representa a **parte final da URL da requisição**, a partir da raiz virtual, ou seja, o caminho do script `.php` solicitado. Por exemplo, em uma requisição para:
 
-### 🧪 Testando os erros no painel
+  ```
+  http://localhost/laravel/index.php
+  ```
 
-No navegador, após subir o projeto com:
+  Como o proxy principal (`nginx:80`) está usando:
 
-```bash
-docker compose up --build
+  ```nginx
+  proxy_pass http://nginx-laravel:8083/;
+  ```
+
+  ...o prefixo `/laravel` **é removido automaticamente**, e a URL recebida pelo `nginx-laravel:8083` passa a ser simplesmente:
+
+  ```
+  /index.php
+  ```
+
+  Portanto, `$fastcgi_script_name` será:
+
+  ```
+  /index.php
+  ```
+---
+
+### 🔍 Entendendo o valor de `$fastcgi_script_name` em diferentes cenários
+
+#### 📌 Exemplo 1 — Acesso direto ao script:
+
+**URL:**
+
+```
+http://localhost/laravel/index.php
 ```
 
-Acesse [http://localhost](http://localhost) e clique no botão **"Ver mais"**, depois verifique a seção **"📌 Erros principais"**. Caso haja erros 404 e 502 gerados ali serão enviados automaticamente para `/var/log/nginx/error.log`.
+1. O NGINX principal (`localhost:80`) está configurado com:
 
-⚠️ **Importante:**
-Nem todos os erros são tratados pelo mesmo servidor:
+   ```nginx
+   proxy_pass http://nginx-laravel:8083/;
+   ```
 
-* **Erros como `/api/abc` ou `/round-robin/games/abc`** são processados pelo *balanceador* (`nginx-java-balancer`).
-* **Erros como `/abc` ou `/error`** ocorrem no *NGINX principal* (`nginx`, serviço da porta 80), e são redirecionados para o servidor da porta `8081`, onde há páginas HTML customizadas para códigos 40x e 50x.
+   Com essa barra final (`/`), o prefixo `/laravel` é removido automaticamente.
+
+2. Então a URL que chega no `nginx-laravel:8083` é:
+
+   ```
+   /index.php
+   ```
+
+3. Nesse caso:
+
+   ```
+   $fastcgi_script_name = /index.php
+   ```
+
+   E o `SCRIPT_FILENAME` será montado como:
+
+   ```
+   /var/www/public/index.php
+   ```
 
 ---
 
-## 📦 Como enviar os logs para stdout/stderr (modo 12factor / ELK-ready)
+#### 📌 Exemplo 2 — Acesso com rota após o index.php:
 
+**URL:**
 
-> ⚠️ **Observação:** No caso da imagem `nginx:1.26`, o redirecionamento para `stdout/stderr` já está habilitado por padrão.  
-> As diretivas `access_log` e `error_log` continuam funcionando, mas os caminhos apontam internamente para `/dev/stdout` e `/dev/stderr`.
+```
+http://localhost/laravel/index.php/teste
+```
 
+1. O NGINX principal remove o prefixo `/laravel`, restando:
 
-Por padrão, o NGINX escreve logs em arquivos. Mas **para enviar logs para um sistema de log externo** como ELK, Loki, Datadog, etc., é melhor redirecionar os logs para **stdout** e **stderr**.
+   ```
+   /index.php/teste
+   ```
 
-### ✅ Etapas:
+2. Para lidar com esse cenário, usamos dentro de `location ~ \.php$`:
 
-1. **Abra o arquivo `nginx.conf` principal**
-2. Altere as diretivas `access_log` e `error_log` assim:
+   ```nginx
+   fastcgi_split_path_info ^(.+\.php)(/.+)$;
+   ```
+
+   Isso separa a parte do script (`.php`) e a parte extra do caminho.
+
+3. O que acontece aqui:
+
+  * `$fastcgi_script_name = /index.php`
+  * `$fastcgi_path_info = /teste`
+
+4. Então:
+
+   ```nginx
+   fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+   # SCRIPT_FILENAME → /var/www/public/index.php
+   ```
+
+   E o PHP-FPM (Laravel) recebe o `PATH_INFO` como `/teste`, permitindo ao Laravel **resolver essa rota internamente.**
+
+---
+
+#### 📌 Exemplo 3 — Acesso com rota amigável (sem index.php na URL):
+
+**URL:**
+
+```
+http://localhost/laravel/teste
+```
+
+1. O NGINX principal remove o prefixo `/laravel`, restando:
+
+   ```
+   /teste
+   ```
+
+Nesse caso, esse endereço irá ser redirecionado para o `location /`. O `try_files`, dentro de `location /`, do `nginx-laravel` faz a mágica:
 
 ```nginx
-# Redireciona logs de acesso para a saída padrão
-access_log /dev/stdout custom_logs;
-
-# Redireciona logs de erro para a saída de erro padrão
-error_log /dev/stderr warn;
+location / {
+    try_files $uri $uri/ /index.php?$query_string;
+}
 ```
 
-> ⚠️ Certifique-se de que o `log_format custom_logs` esteja definido no mesmo arquivo ou incluído por ele.
+2. A URL original é `/teste`, que **não existe fisicamente** como arquivo.
 
-3. **Reinicie o container:**
+3. Então o `try_files` **encaminha para**:
 
-```bash
-docker compose restart nginx
-```
+   ```
+   /index.php
+   ```
 
-4. Agora os logs vão aparecer diretamente com:
+   ...e mantém a query string, se houver.
 
-```bash
-docker compose logs -f nginx
-```
+4. Com isso, internamente é como se fosse:
 
-## 🧠 Por que enviar os logs para stdout/stderr importa?
+   ```
+   /index.php/teste
+   ```
 
-Esse modelo segue o padrão **[12factor](https://12factor.net/logs)**:
+> A partir daqui temos o caso de `📌 Exemplo 2 — Acesso com rota após o index.php:` logo acima:
 
-> > "A aplicação deve tratar logs como streams de eventos e escrevê-los para stdout. É responsabilidade do ambiente operacional capturar, roteá-los e persistir se necessário."
+E assim:
 
-Isso facilita a integração com ferramentas como:
+* `$fastcgi_script_name = /index.php`
+* `$fastcgi_path_info = /teste`
 
-* Elasticsearch + Logstash + Kibana (ELK)
-* Grafana + Loki
-* Fluentd
-* CloudWatch
-* Prometheus (com exporters)
+> ✅ Laravel trata isso internamente e encontra a rota definida em `routes/web.php`.
 
 ---
 
-## ✅ Conclusão
+### ✅ Resumo rápido
 
-Com isso, você pode:
+| URL requisitada                  | `$fastcgi_script_name` | `$fastcgi_path_info` |
+| -------------------------------- | ---------------------- | -------------------- |
+| `/laravel/index.php`             | `/index.php`           | *(vazio)*            |
+| `/laravel/index.php/teste`       | `/index.php`           | `/teste`             |
+| `/laravel/teste` (rota amigável) | `/index.php`           | `/teste`             |
 
-* Ver os logs da aplicação em tempo real
-* Modificar o formato dos logs
-* Enviar logs diretamente para soluções externas
-* Auditar problemas de roteamento, erros de proxy e comportamento dos algoritmos de balanceamento
+Esse comportamento só funciona corretamente porque temos **essas diretivas combinadas** no `location ~ \.php$`:
+
+```nginx
+fastcgi_split_path_info ^(.+\.php)(/.+)$;
+include fastcgi_params;
+fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+fastcgi_param PATH_INFO $fastcgi_path_info;
+```
+
+---
+
+🔧 **Resultado final da interpolação:**
+
+O `SCRIPT_FILENAME` final enviado ao `php-fpm` será:
+
+```
+/var/www/public/index.php
+```
+
+Isso garante que o `php-fpm` dentro do container `laravel1` (que tem o volume montado com `./php/laravel1:/var/www`) encontre corretamente o script que deve ser executado.
+
+---
+
+## ✅ Versão final recomendada
+
+```nginx
+server {
+    listen 8083;
+    index index.php;
+    root /var/www/public;
+
+    client_max_body_size 51g;           # Aceita uploads grandes
+    client_body_buffer_size 512k;
+    client_body_in_file_only clean;
+
+    location ~ \.php$ {
+        try_files $uri =404;  # Evita execução se o arquivo não existir
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;  # Divide script + path extra
+        fastcgi_pass laravel1:9000;  # Encaminha requisição FastCGI para o php-fpm
+        fastcgi_index index.php;  # Página padrão se não especificada
+        include fastcgi_params;  # Variáveis padrão do FastCGI
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;  # Caminho real do arquivo
+        fastcgi_param PATH_INFO $fastcgi_path_info;  # Parte extra da URL
+    }
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+        gzip_static on;  # Usa versão compactada se existir
+    }
+
+    error_log  /var/log/nginx/error.log;
+    access_log /var/log/nginx/access.log;
+}
+```
+
+---
+
+## 🎯 Conclusão
+
+A configuração com `fastcgi_pass` é mais detalhada do que com `proxy_pass` porque o protocolo **FastCGI exige variáveis específicas** que não estão presentes numa simples requisição HTTP. Para resolver isso:
+
+* **Incluímos o arquivo `fastcgi_params`**
+* **Passamos explicitamente o caminho do script**
+* **Tratamos `PATH_INFO` para URLs amigáveis**
+
+A partir daqui, você pode montar um projeto funcional em PHP com o `php-fpm` e o NGINX rodando como gateway.
 
 ---
 
